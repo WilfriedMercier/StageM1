@@ -1,0 +1,460 @@
+\documentclass[a4paper,11pt]{article}
+\usepackage[T1]{fontenc}
+\usepackage[utf8]{inputenc}
+\usepackage{lmodern}
+\usepackage[francais]{babel}
+\usepackage[ portrait, margin = 0.7 in]{geometry}
+
+\usepackage{amsmath}
+\usepackage{amssymb}
+
+\usepackage{mathrsfs}  
+\usepackage{dutchcal}
+\usepackage{graphicx}
+
+\graphicspath{{./images/}}
+\usepackage{float}
+\usepackage{subfig}
+
+\usepackage{gensymb}
+\usepackage{multicol, caption}
+\usepackage{makecell}
+\usepackage{bm}
+\numberwithin{equation}{section}
+
+\usepackage{hyperref}
+\usepackage{breakcites}
+
+%In order to have figures on just one column
+\newenvironment{Figure}
+  {\par\medskip\noindent\minipage{\linewidth}}
+  {\endminipage\par\medskip}
+
+\DeclareMathOperator{\arccosh}{arccosh}
+
+\begin{document}
+
+\title{\LARGE \bf Évaluation du Code de caractérisation d'amas PROF-CL}
+\author{MERCIER Wilfried - Observatoire de Paris}
+\maketitle
+
+\newpage
+
+\tableofcontents
+
+\newpage
+
+\section*{Notations utiles}
+\addcontentsline{toc}{section}{Notations utiles}
+\begin{tabular}{l l l}
+  Nom & Symbole(s) & Description \\
+  Profil NFW & $\rho_{NFW}$ & Profil de densité universel de matière noire Navarro, Frenk, White \\
+  Densité surfacique & $\Sigma (R)$ & Densité surfacique projetée sur le ciel \\
+  Rayon de pente -2 &  $r_s$ , $r_{-2}$ & Rayon pour lequel la pente de $\rho_{NFW}$ vaut -2 \\
+  & $r_{200}$ & Rayon pour lequel la densité de la sphère vaut 200 fois la densité \\
+  & & moyenne de matière dans l'Univers \\
+  Rayon viriel & $r_{vir}$ & Rayon pour lequel la matière dans la sphère est en équilibre \\
+  Rayon projeté & $R$ & Distance au centre d'un amas projetée sur le ciel \\
+  Rayon circularisé & $\mathscr{R}$ & Distance projetée au centre d'un amas après circularisation \\
+  Ellipticité & $e$ & Ellipticité de l'amas égale à $1 - b/a$ avec b le demi-petit axe et \\
+  & & a le demi-grand axe \\
+  Angle de position & $PA$ & Angle entre le demi-grand axe et le Nord allant du Nord vers l'Est \\
+  & $\bm{\hat{\theta}}$ & Vecteur des paramètres du modèle \\
+  Nombre projeté & $N_p (R)$ & Nombre de galaxies à une distance projetée $R$ du centre de l'amas \\
+  Richesse & $N_{\rm{eff}}$ & Somme des probabilités d'appartenance des galaxies à l'amas \\
+  
+\end{tabular}
+
+\vspace{20pt}
+Dans la suite les termes halos et amas seront utilisés pour décrire la même chose, à savoir des amas de galaxies. Pour éviter toute confusion le terme halo sera exclusivement utilisé pour désigner les amas de galaxies issus de la simulation \cite{Catalog_EUCLID}.\par
+A l'inverse le terme amas référera uniquement soit aux amas "académiques" simulés lors du stage pour tester l'efficacité du code, soit aux amas détectés par l'algorithme de détection d'amas AMICO.\par 
+Par souci d'usage certains termes seront donnés en anglais.
+
+\newpage
+
+\section{EUCLID, AMICO et PROFCL}
+  \subsection{Projet EUCLID}
+    Le code PROFCL a pour but de fonctionner à terme sur des données issues du future satellite EUCLID de l'Agence Spatial Européenne (ESA). Cette mission cherche à mieux comprendre la nature de l'énergie sombre et l'origine de l'expansion accélérée de l'Univers en étudiant notamment les lentilles gravitationnelles faibles ainsi que la distribution spatiale des amas de galaxies et leurs propriétés.\newline
+    Pour ce faire un large catalogue de $15000 \ \ \rm{deg^2}$ (\textit{wide survey}) d'objets extra-galactiques à la fois dans les bandes optiques jusqu'à $24.5 \rm{mag}$ et dans l'infrarouge proche (bandes Y, J, H) jusqu'à $24 \rm{mag}$ sera disponible, complémenté par deux catalogues plus restreints (\textit{deep surveys}) cumulant $40\rm{deg^2}$ et pouvant aller jusqu'à $26 \rm{mag}$ environs\cite{EUCLID}. Tous les objets observés posséderont un redshift photométrique, voir un redshift spectroscopique pour certains d'entre eux. EUCLID sera en mesure d'observer des galaxies de masse supérieure à $10^{14} \rm{M_{\odot}}$ et jusqu'à des redshifts de l'ordre de $2$.\par
+    L'étude conjointe des lentilles gravitationnelles faibles (\textit{Lensing} - WL) et des amas de galaxies (\textit{Galaxy Clustering} - GC) devrait permettre en particulier d'étudier certaines questions de cosmologie contemporaine, parmi lesquelles se trouvent\cite{EUCLID_BIBLE}:
+    \begin{itemize}
+      \item la dépendance en redshift du paramètre $w(a)$ où $a = 1 + z$ et de sa dérivée première $w_a (a) = dw/da$ de l'équation d'état de l'énergie sombre $p = w(a) \rho$
+      \item le facteur de croissance et sa dérivée (\textit{growth rate}) $f(z) = [ \Omega_m (z) ]^{\gamma}$ qui caractérisent l'efficacité à former des structure dans l'Univers au cours du temps, en particulier la mesure de l'exposant $\gamma$
+    \end{itemize}
+  
+  \subsection{Algorithmes de détection d'amas: AMICO et PZWav}
+    Afin de pouvoir étudier le GC et en déduire des informations sur la cosmologie, la première étape consiste à détecter les amas de galaxies dans le catalogue d'EUCLID. Dans ce contexte des algorithmes de détection d'amas (\textit{cluster finders}) ont été développés et testés dans un ensemble de 4 challenges (CFC).\newline
+    Chaque algorithme a été testé sur un catalogue mock\cite{Catalog_EUCLID} d'une taille originelle de $500 \rm{deg^2}$ réduite à $300 \rm{deg^2}$ fournissant des données similaires à celles attendues pour EUCLID. En particulier le catalogue était limité à des objets plus brillants que $24 \rm{mag}$ dans les intervalles considérés de masse et de redshift. Les positions des galaxies étaient fournies avec un redshift photométrique et une probabilité de distribution associée. Comme pour EUCLID, un second catalogue de $20 \rm{deg^2}$ était fourni avec à la fois des redshifts spectroscopiques et photométriques.\par
+    Parmi les 8 codes de départs, deux ont été retenus pour leur efficacité et leur complémentarité dans les intervalles de masse et de redshift où ils excellent : PZWav et Adaptative Matched Identifier of Clustered Objects (AMICO).\par
+
+    Seules les données d'AMICO ont pu être utilisées et analysées pendant le stage. Ainsi on ne donnera qu'une description très brève du fonctionnement de PZWav (voir \cite{EUCLID} et \cite{IRAC} pour plus d'informations sur le fonctionnement de l'algorithme).
+    \subsubsection{PZWav}
+      Cet algorithme découpe l'intervalle de redshift en plusieurs tranches puis construit à l'aide de la densité de probabilité des cartes de densités à différents redshift. En répétant l'opération avec des densité de probabilité aléatoires une valeur maximale sur le bruit du fond peut être déduite ainsi que sa variation avec le redshift. Les amas sont alors détectés comme des pics dans les cartes de densité et une valeur du rapport signal-bruit ($S/N$) est déduite.
+    \subsubsection{AMICO}
+      AMICO est un algorithme de détection d'amas basé sur une méthode de Filtrage Optimale (OF) originellement utilisé pour la détection d'amas sur des données de lentille gravitationnelle faible\cite{AMICO}. Les données sont décrites comme étant la somme d'un modèle et d'un fond non-uniforme. 
+	  La densité surfacique du fond est calculée localement autour de chaque grande structure mais suffisamment loin pour ne pas prendre en compte le signal provenant du modèle.\newline      
+      L'amplitude du signal brut (sans fond) est alors déterminée en appliquant un filtre sur la distribution des galaxies; les pics dans la carte de densité 3D obtenue correspondent aux amas. Un processus itératif va alors:
+	\begin{itemize}
+		\item éliminer tous les pixels de l'image avec un rapport signal-bruit $S/N$ inférieur à une certaine limite $(S/N)_{\rm{min}}$ typiquement de l'ordre de 2
+		\item chercher le pic avec la plus grande amplitude et l'assigner comme étant un amas
+		\item assigner une probabilité $p(i \in j)$ d'appartenance de la galaxie i à l'amas j pour toutes les galaxies au voisinage de l'amas ainsi qu'une "probabilité de champ" (\textit{field probability}) définie comme $p_{f,i} = 1 - \sum_{j=1}^N p(i \in j)$
+		\item retirer de l'image le signal du modèle pour chaque galaxie multiplié par la probabilité  de champ
+		\item recommencer depuis l'étape 1 jusqu'à ce que plus aucune galaxie n'ait $S/N > (S/N)_{\rm{min}}$
+	\end{itemize}	      
+       
+      Contrairement à PZWav cet algorithme possède l'avantage de fournir une probabilité d'appartenance à l'amas (\text{membership}) que l'on pourra incorporer dans le calcul du likelihood (voir section \ref{sec:Likelihood}). En principe AMICO permet de mieux détecter les petites structures, cependant comme montré dans \cite{EUCLID} cet algorithme a aussi le défaut d'avoir un taux de fragmentation\footnote{Proportion de halos (issus de la simulation) détectés comme étant composés de plusieurs amas} plus élevé que les autres algorithmes.
+      
+    \subsection{PROFCL: code de détermination des propriétés d'amas par maximum de vraissemblance}
+
+    
+      PROFCL est un algorithme qui cherche à déterminer les meilleurs paramètres des amas détectés par AMICO et PZWav par maximum de vraisemblance. Le code ne reçoit en entrée que les positions des galaxies appartenant aux amas trouvés ainsi que pour AMICO les probabilités d'appartenance à l'amas. \par
+      À chaque galaxie de l'amas détecté va être associée une probabilité de trouver la galaxie à cette position sachant les paramètres considérés. On peut alors définir un \textit{likelihood} comme étant le produit des probabilités de toutes les galaxies de l'amas. Le code va alors se charger de trouver les paramètres qui minimisent l'opposé du logarithme du \textit{likelihood} via plusieurs procédures de minimisation (descente de gradient, algorithme stochastique, simplex, etc...).\newline
+      Les paramètres testés par PROF-CL sont les suivants:
+      
+      \begin{itemize}
+        \item Rayon caractéristique et en particulier son logarithme (\textit{log scale radius}) noté $\log_{10} (r_s/\rm{arcmin})$
+        \item Angle de position de l'amas en degrés noté $PA$
+        \item Ellipticité de l'amas $e = 1 - b/a$
+        \item Densité surfacique du fond $\Sigma_{\rm{bg}}$ supposée constante en $\rm{arcmin^{-2}}$
+        \item Le logarithme du rayon de troncation $\log_{10} ( R_{\rm{trunc}} / \rm{arcmin})$ si un modèle NFW tronqué est testé
+      \end{itemize}
+	
+	\subsection{Fonctionnalités du code à améliorer}
+		Au moment de commencer le stage PROF-CL était dans sa version 1.10. Les fonctionnalités principales avaient déjà été programmées mais le code n'avait été que peu testé jusqu'à présent. En principe le code était capable de fonctionner dans les cas suivants:
+		\begin{itemize}
+			\item amas circulaire : considère $e, PA, N_{\rm{bg}} = 0$  et retourne $\log_{10}(r_{-2})$
+			\item amas elliptique : retourne $\lbrace e, PA, \log_{10}(r_{-2}) \rbrace$
+			\item avec fond : retourne en plus $\log_{10} (\Sigma_{\rm{bg}})$
+		\end{itemize}
+		
+		Le cas elliptique pouvait être traité par approximation analytique de l'intégrale de densité de surface (cf. section \ref{Densité_surfacique_projetée}) ou par Monte-Carlo. Le code ne fonctionnait que sur les amas académiques d'Artis.\newline
+		Dans la pratique certaines parties du code n'étaient pas opérationnelles ou ne retournaient pas de résultats corrects. Il a donc fallu retravailler dessus avant de pouvoir analyser les performances du code. Ci-dessous une liste non-exhaustive des parties du code sur lesquelles il a fallu retravailler/implémenter:
+		\begin{itemize}
+			\item Ré-écriture de la séparation médiane
+			\item Amélioration et accélération de l'intégration par Monte-Carlo
+			\item Ré-écriture et implémentation des équations de la probabilité pour des amas elliptiques (potentiellement décentrés)
+			\item Gestion des sorties de limites pour des algorithmes sans contraintes (cf. annexe \ref{Algo})
+			\item Gestion des données issues d'AMICO
+		\end{itemize}
+
+\begin{figure}
+  \label{Median_separation}
+	\begin{center}
+		\subfloat[Biais sur le logarithme du rayon caractéristique en fonction du nombre de galaxies. Les valeurs médianes et moyennes sont légèrement décalées pour des questions de visibilité. On remarque que la séparation médiane se comporte assez bien à nombre de galaxies élevé.]{\includegraphics[scale=0.48]{mediansep.pdf}}
+		\quad
+		\subfloat[Dispersion sur le logarithme du rayon caractéristique. Comme pour le biais on remarque que la dispersion diminue avec le nombre croissant de galaxies.]{\includegraphics[scale=0.48]{medsep_scat.pdf}}
+	\end{center}
+	\caption{Biais et dispersion pour la séparation médiane. Chaque valeurs est calculée pour 100 itérations d'amas d'Emmanuel ARTIS contenant 20, 40, 80, 160, 320, 640 et 1280 galaxies.}
+	\label{fig:Median}
+\end{figure}
+
+  \section{Étude de la Séparation médiane}
+  \subsection{Modélisation et calcul}
+    Avant de commencer à étudier l'efficacité du code par méthode de maximum de vraisemblance, une alternative prometteuse semblait résider dans la séparation médiane entre les galaxies.\par
+    En effet, si l'on possède un amas constitué de $N$ galaxies alors on peut s'attendre intuitivement à ce que la médiane des séparations inter-galaxies soit reliée au rayon caractéristique de l'amas ($r_{-2}$ par exemple) par une relation linéaire $\Delta  = \alpha + \beta r_{-2}$. \par
+     En pratique on boucle dans le code sur $i,j$ avec $j<i$ et on calcule les $N(N-1)/2$ séparations $\Delta l_{kl} = \vert l_k - l_l \vert$. 
+     On obtient alors la partie triangulaire supérieure d'une matrice symétrique sur laquelle on peut calculer la séparation médiane.
+  \subsection{Analyse de la séparation médiane}
+  	La séparation médiane est assez biaisée. Elle a tendance à surestimer la valeur du \textit{log scale radius} et décroît légèrement avec le nombre de galaxies. Malgré plus important, on peut remarquer que contrairement aux méthodes par maximum de vraisemblance la dispersion sur les résultats est très faible.\par
+  	En pratique cela signifie que si l'on arrive à corriger le biais a posteriori on devrait être en mesure d'obtenir un bon indicateur pour le rayon caractéristique.
+  	[ETUDIER COMMENT LE BIAIS VARIE AVEC L'ELLIPTICITE et le BACKGROUND]
+
+  \section{Halo de matière noire : Profil NFW et surface de densité}
+  \subsection{Profils NFW et NFW tronqués}
+    Vers la fin des années 1990 Navarro, Frenck et White montrèrent à l'aide de simulations numériques à N-corps que les halos de matière noire formés dans des cosmogonies de type CDM possèdent un profil de densité 3D NFW isotrope.
+	Un tel profil est abondamment utilisé dans la littérature pour la modélisation de profil radial d'amas (modèle utilisé dans \cite{AMICO}). 
+    Le profil NFW est généralement écrit sous la forme\cite{NFW1996}
+    
+    \begin{equation}
+      \label{eq:NFW_profile}
+      \frac{\rho(r)}{\rho_{crit}} = \frac{\delta_{char}}{(r/r_s) ( 1 + r / r_s)^2}
+    \end{equation}
+    
+    Où $r_s$ représente le rayon de pente -2 et $\delta_{char}$ est une surdensité caractéristique que l'on relie au paramètre de concentration $c = r_s / r_v$ via la formule\cite{Mo_concentration}
+    
+    \begin{equation}
+      \delta_{char} = \frac{200}{3} \frac{c^3}{\ln(1+c) - c / (1+c)}
+    \end{equation}
+    
+	Un autre profil est des fois employé dans la littérature : le profil Einasto \cite{Einasto}. Cependant nous nous restreindrons au profil NFW pour ce qui suit.
+    
+  \subsection{Densité surfacique projetée}
+  \label{Densité_surfacique_projetée}
+  	Les redshifts photométriques n'étant pas suffisamment performants pour nous fournir une information précise sur la distance des galaxies, le profil 3D n'a que peu d'intérêt en lui-même. 
+    Les données traitées étant les positions projetées des galaxies sur ciel, il nous faut non pas travailler avec la densité 3D mais avec la densité surfacique projetée. Celle-ci est obtenue en intégrant le profil de densité le long de la ligne de visée
+    
+    \begin{equation}
+      \Sigma (R) = \int_{\mathbb{R}} \rho (r) dz
+    \end{equation}
+    
+    Où $r$ est le rayon 3D (ci-après rayon) et $z$ est la composante selon la ligne de visée. En notant $R$ le rayon dans le plan du ciel (ci-après rayon projeté), on peut réécrire cette dernière équation comme
+    
+    \begin{equation}
+      \label{eq:Surface_density}
+      \Sigma(R) = 2 \int _{R}^{\infty} \frac{r \rho (r) dr}{(r^2 - R^2)^{1/2}} 
+    \end{equation}
+    
+    La solution analytique de cette équation donnée en Annexe \ref{Solutions analytiques de la densité de surface NFW/NFW tronqué} pour un profil NFW est utilisée par PROF-CL pour le calcul du \textit{likelihood}.
+	Pour les données issus d'AMICO, les amas ne s'étendent pas jusqu'à l'infini mais sont en réalité tronqués jusqu'à un rayon $\sim r_{\rm{vir}}$. Cela signifie que Eq.\ref{eq:Surface_density} n'est plus correcte et qu'il faut effectuer le changement $\infty \rightarrow R_{\rm{trunc}}$ au niveau de la borne supérieure. Une solution analytique donnée en Annexe \ref{Solutions analytiques de la densité de surface NFW/NFW tronqué} est aussi utilisée par PROF-CL mais uniquement dans le but d'étudier les halos (cf. section \ref{sec:AMICO}).
+	
+	
+	
+	
+	
+	
+
+  \newpage
+  \section{Calcul du log-likelihood}
+	PROF-CL repose entièrement sur l'idée de trouver les meilleurs paramètres pour chaque halo par maximum de vraisemblance. Dans cette section on présente les équations utilisées par PRO-CL et notamment celles développées lors du stage pour étudier des halos non-sphériques.  
+  
+  \label{sec:Likelihood}
+  \subsection{Maximum de vraisemblance pour des amas de galaxies}
+    Jusque dans les années 1980 l'unique méthode permettant de déterminer la densité surfacique projetée des amas était du \textit{binning-fitting}. Chaque image était découpée en anneaux de taille quelconque et le nombre de galaxies dans chaque anneau était compté. Sarazzin montra que ce type de méthode faisait apparaître des artefacts dans le rayon caractéristique des amas liés au choix de la taille des anneaux \cite{Sarazin1980}. Il proposa une méthode sans \textit{binning} basée sur le principe de maximum de vraisemblance.\par
+    L'idée est d'assigner à chaque galaxie une probabilité de la trouver dans sa position étant donné le modèle considéré et les paramètres testés, puis de construire le \textit{likelihood} comme le produit de ces probabilités. Pour un ensemble de N galaxies de positions $ \lbrace \bm{X_i} = (x_i , y_i )_{1 < i < N} \rbrace $, en notant $\bm{\theta} = \lbrace \theta_i \rbrace $ l'ensemble des paramètres testés, on peut écrire le \textit{likelihood} comme
+    
+    \begin{equation}
+      \label{eq:Likelihood}
+      \mathscr{L} = \prod_{i=1}^N p( \bm{X_i} | \bm{\theta})
+    \end{equation}
+    
+    Techniquement $p(\bm{X_i} | \bm{\theta})$ est une densité de probabilité normalisée à 1 telle que $p(\bm(X_i) | \bm \theta) d^2\bm{X}$ soit la probabilité de trouver la galaxie $i$ dans l'intervalle $[\bm{X_i} , \bm{X_i} + d\bm{X} ]$.\par 
+    En pratique, puisqu'il est plus simple de minimiser une fonction que de la maximiser et que les probabilités considérées sont très faibles, on considère plutôt l'opposé du logarithme du \textit{likelihood} (\textit{log-likelihood})
+    
+    \begin{equation}
+      \label{eq:Log_Likelihood}
+      - \log \mathscr{L} = - \sum_{i=1}^N p (X_i \in cluster) \log p (X_i | \bm{\theta})
+    \end{equation}
+    
+    où on a pris soin de pondérer chaque terme par la probabilité de trouver la galaxie dans l'amas correspondant. Celle-ci est fournie par AMICO mais pas par PZWav ou par les amas académiques, c'est pourquoi si la probabilité d'appartenance des galaxies n'est pas connue on la prendra  égale à 1.
+    
+    \subsection{Probabilité de position pour un amas sphérique}
+    La probabilité d'appartenance d'une galaxie à un amas sphérique est relativement simple. Dans ce cas il n'est pas question d'ellipticité ou d'angle de position. Ainsi pour un modèle NFW les paramètres se réduisent à $\bm{\theta} = \lbrace r_{-2} , \Sigma_{\rm{bg}} \rbrace$ et la probabilité s'écrit\cite{Mamon2010}
+    \begin{equation}
+      \label{eq:Prob_uv_circ}
+      p(R | \bm{\theta}) =  \frac{2\pi R [ \Sigma (R) + \Sigma_{\rm{bg}} ]}{N_{\rm{tot}}}
+    \end{equation}
+    
+    où $R$ représente le rayon projeté, $\Sigma$ est la densité surfacique du modèle et $N_{\rm{tot}}$ est le nombre total de galaxies dans l'amas qui, pour un amas dont l'extension angulaire va de $R_{min}$ à $R_{max}$, s'écrit
+    \begin{equation}
+      \begin{split}
+        \label{eq:N_tot}
+        N_{\rm{tot}} =  & \int_{R_{\rm{min}}}^{R_{\rm{max}}} 2 \pi R \Sigma_{\rm{tot}}(R) dR \\
+                =  & N(r_{-2}) \Delta \tilde{N}_p + \pi \Sigma_{\rm{bg}} \Delta R^2
+      \end{split}
+    \end{equation}
+    
+    Où $\Sigma_{\rm{tot}}(R) = \Sigma (R) + \Sigma_{\rm{bg}}$ et où on a défini les quantités suivantes
+      \begin{align*}
+        N_{\rm{p}} (R) & = N(r_{-2}) \tilde{N}_{\rm{p}} \left ( R / r_{-2} \right ) \\
+        \Delta R^2 & = R_{\rm{max}}^2 - R_{\rm{min}}^2 \\
+        \Delta \tilde{N}_{\rm{p}} & = \tilde{N}_{\rm{p}} (R_{\rm{max}}/r_{-2}) - \tilde{N}_{\rm{p}} (R_{\rm{min}}/r_{-2})
+      \end{align*}
+      
+	avec $N_{\rm{p}}(R)$ le nombre de galaxies projetées dans l'amas selon le modèle jusqu'à une distance $R$ et $\tilde{N_{\rm{p}}}$ l'équivalent adimensionné.
+      
+  Dans les faits le terme $2\pi R$ dans Eq.\ref{eq:Prob_uv_circ} est constant et n'intervient pas dans la procédure de minimisation, on peut donc se permettre de le retirer du code (ce ne sera plus vrai dans le cas elliptique).\par
+  Le facteur de normalisation $N(r_{-2})$ est quant à lui calculé via Eq.\ref{eq:N_tot} étant donné que l'on connaît à la fois le nombre total de galaxies appartenant à l'amas, son extension spatiale et la densité surfacique du fond testée.
+  \subsection{Probabilité pour un amas elliptique}
+  Dans le cas elliptique les paramètres sont $\bm{\theta} = \lbrace r_{-2} , \Sigma_{\rm{bg}} , e , PA \rbrace$. Eq.\ref{eq:Prob_uv_circ} n'est plus correcte car l'ellipticité doit être prise en compte. Puisqu'il n'existe pas de modèle elliptique pour la densité surfacique, l'idée va être de "circulariser" l'amas et d'exprimer la probabilité de trouver la galaxies dans cet amas circularisé.\par
+	En pratique, on commence par tourner l'amas d'un angle $-PA$ puis on calcule les nouvelles coordonnées locales elliptiques $(u, v^{'})$  pour chaque galaxie comme décrit dans l'Annexe \ref{coord}.\par
+	On peut à présent écrire la probabilité de positionnement de la galaxie de manière générale comme
+	
+	\begin{equation}
+		\label{prob_ell}
+		p( (u,v) | \bm{\theta}) = \frac{\Sigma_{\rm{tot}} (u,v)}{\iint_{\Gamma} \Sigma_{\rm{tot}} (u,v) \rm{du} \rm{dv} }
+	\end{equation}
+	
+	où $\Gamma$ est le domaine d'intégration de l'amas circularisé tel que la probabilité soit normalisée à 1. Dans Eq.\ref{prob_ell} la densité surfacique totale peut s'écrire comme la somme du modèle et d'un fond constant 
+	
+	\begin{equation}
+		\label{Density_surface_tot_ell}
+		\Sigma_{\rm{tot}} (u,v) = \Sigma_{\rm{ell}} (u,v) + \Sigma_{\rm{bg}}	
+	\end{equation}		
+
+	Contrairement au cas circulaire la densité surfacique du modèle n'est plus isotrope dans le système de coordonnées $(u,v)$, cependant on peut la relier à une densité surfacique isotrope si on considère les coordonnées $(u, v^{'})$ via la relation
+	
+	\begin{equation}
+		\label{Density_surface_link}
+		\Sigma_{\rm{ell}} (u,v)= \frac{1}{1-e} \Sigma ( \mathscr{R} )
+	\end{equation}
+	
+	En insérant Eq.\ref{Density_surface_tot_ell} dans le dénominateur de Eq.\ref{eq:Prob_uv_circ} on exprime le nombre total de galaxies comme
+	
+	\begin{equation}
+		\label{N_tot_ell}
+		\begin{split}
+			N_{\rm{tot}} & = \frac{1}{1-e} \iint_{\Gamma} \Sigma ( \mathscr{R} ) \rm{du} \rm{dv} + \pi \Delta R^2 \Sigma_{\rm{bg}} \\
+			& = N(r_{-2}) [ \tilde{N}_{\rm{p}} (R_{\rm{max}}/r_{-2}, e) - \tilde{N}_{\rm{p}} (R_{\rm{min}}/r_{-2}, e) ] + \pi \Delta R^2 \Sigma_{\rm{bg}}
+		\end{split}
+	\end{equation}
+	
+	où on a défini les quantités suivantes
+	
+	\begin{align*}
+		\tilde{N}_{\rm{p}} (R/r_{-2}, e) & = N_{\rm{p}}(R , e) / N(r_{-2}) \\
+		N_{\rm{p}} (R, e) & = \frac{1}{1-e}  \int_{-R}^R \rm{du} \int_{- \sqrt{R^2 - u^2}}^{\sqrt{R^2 - u^2}} \Sigma_{\rm{ell}} ( \mathscr{R} ) \rm{dv}
+	\end{align*}
+	
+	Comme pour le cas circulaire on obtient le facteur de normalisation $N(r_{-2})$ dans le cas elliptique via Eq.\ref{N_tot_ell}.
+	En combinant les résultats précédents on peut alors exprimer la probabilité de position d'une galaxie dans un amas sachant les paramètres $\bm{\theta}$ comme
+	
+	\begin{equation}
+		p( (u,v) | \bm{\theta}) = \frac{1}{N_{\rm{tot}}} \left [ \frac{N(r_{-2})}{\pi r_{-2}^2 (1 -e)} \tilde{\Sigma}_{\rm{ell}} (\mathscr{R}/r_{-2}) + \Sigma_{\rm{bg}} \right ]
+	\end{equation}
+	
+	
+	
+	
+	
+\newpage
+\section{Amélioration des algorithmes de minimisation}
+\subsection{Gestion des limites}
+	\begin{figure}
+		\label{fig:Wall}
+		\includegraphics[width=0.5\linewidth]{fixedPA_and_loga.pdf} 
+		\caption{Portion de l'espace des paramètres à PA et $r_{-2}$ fixés. On observe un "mur" au-delà de $\log_{10}(\Sigma_{\rm{bg}}) \sim 4.7$ lorsque la densité surfacique du fond sort des limites imposées. Le HUGE a été ramené à 0 pour des questions de visibilité. Les traits pointillés représentent les courbes d'iso-likelihood.}
+	\end{figure}
+	Certains algorithmes comme TNC ou BFGS prennent en compte la gestion des limites sur les paramètres de la fonction à minimiser. Dans ce cas il suffit de fournir pour chaque paramètres un intervalle qui va délimiter l'espace des paramètres à explorer. Au contraire certaines méthodes telles que DE ou NM peuvent en principe parcourir complètement l'espace des paramètres et donc, en principe, converger vers un minimum local pour des valeurs de paramètres non-physiques.\par
+	La solution qui avait été trouvée au début du stage était de tester les valeurs pour chaque paramètre et de retourner $- \log_{10} (\mathscr{L}) \sim 10^{30}$. En principe cette astuce devrait fonctionner pour DE car c'est un algorithme stochastique qui ira tester de nouvelles solutions ailleurs dans l'espace des paramètres. \par
+	Pour NM, l'astuce ne fonctionne plus car l'algorithme va avoir tendance à rester localisé dans un même zone. Si l'algorithme est coincé dans un "mur" (cf. Fig.\ref{fig:Wall}), i.e. tous les sommets du simplex retournent $\sim 10^{30}$, l'algorithme ne saura plus dans quelle direction se déplacer. La solution à ce problème est d'ajouter une fonction qui va venir pénaliser le \textit{likelihood} de manière continue plutôt qu'une large valeur. 
+	
+	\subsection{Solutions mises en place}	
+	Soit $\mathscr{P}$ la fonction pénalité et soit $x \in [x_{\rm{min}} , x_{\rm{max}}]$ un paramètre avec $x_{\rm{min}} ,x_{\rm{max}}$ les valeurs limites. Afin de pénaliser le cas $x < x_{\rm{min}}$ on souhaite que notre fonction pénalité ait les propriétés suivantes:
+  \begin{itemize}
+    \item $\mathscr{P} \ \ : \ \ ]-\infty,x_{\rm{min}}] \rightarrow \mathbb{R}_+^*$
+    \item $\mathscr{P} \xrightarrow{X \rightarrow -\infty} \infty$
+    \item $\mathscr{P} (1) = 0$
+    \item $\left. \frac{d\mathscr{P}}{dx} \right | _{x=1} = 0$
+  \end{itemize}
+  
+  La dernière condition est ici pour assurer que la pénalité fonctionne aussi sur des fonctions différentiables. Pour le cas de NM cette dernière n'est pas importante. Pour traiter le cas $x > x_{\rm{max}}$ il suffit de définir la fonction pénalité comme le symétrique selon l'axe $x=1$ de la précédente avec $x_{\rm{min}} \rightarrow x_{\rm{max}}$. \par
+  La première fonction pénalité mise en place dans PROF-CL est
+  \begin{equation}
+    \mathscr{P}(X) = 
+    \begin{cases}    
+      \mathcal{p} (x) & \mbox{si } x < x_{\rm{min}} \\
+      \mathcal{p} (2-x) & \mbox{si } x > x_{\rm{max}}
+    \end{cases}
+  \end{equation}
+  
+  Où on a défini
+  \begin{equation}
+    \mathcal{p} (X) = 
+    \begin{cases}
+      \frac{\pi}{2} (X-1) - \tan \left [ \frac{\pi}{2} (X+1) \right ] & \mbox{si } X < 1 \\
+      0 & \mbox{si } X > 1
+    \end{cases}
+  \end{equation}
+  
+  Bien que de classe $\mathscr{C}^1$, cette fonction n'adopte le comportement voulu que pour des valeurs de x positives. Cela ne pose pas de problèmes, en principe, pour un algorithme comme NM car celui-ci n'ira jamais tester des valeurs négatives de x si le \textit{guess} de départ n'est pas trop mauvais.\par
+  Cependant l'algorithme Powell (intégré dans la dernière version mais peu testé) va quant à lui aller explorer l'espace des phases malgré un bon \textit{guess} de départ. Comme Powell ne requiert pas de fonction différentiable et pour éviter tout problème on intègre dans le code une seconde fonction pénalité seulement $\mathscr{C}^0$ définie comme
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  \section{Étude de PROF-CL sur les amas AMICO}
+  \label{sec:AMICO}
+    \subsection{Méthodologie pour l'analyse de la performance de PROF-CL sur les données d'AMICO}
+      Contrairement aux mocks académiques provenant des codes d'Artis ou de Mamon, les données fournies par AMICO ne permettent pas d'obtenir les paramètres réels des amas qui se sont formés dans la simulation. Le code AMICO, en plus de fournir les coordonnées des galaxies et leur probabilité, ainsi qu'un matching galaxies-amas, nous donne des informations supplémentaires au niveau des amas telles que leur richesse\footnote{La richesse calculée par AMICO n'est pas une mesure directe du nombre de galaxies dans l'amas mais plutôt une mesure de l'intensité des pics dans la carte 3D. Il est aussi possible d'estimer la richesse en sommant memberships des galaxies.}, leur redshift photométrique, l'erreur sur le redshift et le rapport $S/N$.\newline
+      Afin de pouvoir étudier la fiabilité de PROF-CL sur les amas d'AMICO, il nous faut donc déterminer la valeur "réelle" du rayon caractéristique directement sur la simulation. Une solution aurait été de fitter directement sur les données 3D un profil $\rho_{\rm{NFW}}$. Les données 3D n'étant pas disponible la solution trouvée fut de fitter directement sur les halos réels de la simulation un profil NFW tronqué projeté $\Sigma_{\rm{NFW}}^{\rm{trunc}} (R)$ et prendre comme rayon caractéristique "réel" la valeur retournée.\newline
+      Le choix de prendre un profil NFW tronqué pour les halos provient du fait que la simulation semi-analytique place les galaxies dans les halos de matière noire jusqu'à une distance maximale de l'ordre de $2 r_{\rm{vir}}$ mais pas au-delà. Ce choix résulte dans un profil projeté sur le ciel tronqué au-delà d'un certain rayon $R_{\rm{trunc}}$ qui mène à des formules analytiques différentes de celles pour un profil non tronqué\cite{Mamon2010}. 
+    \subsection{Matching des données AMICO et EUCLID}
+      Avant de pouvoir étudier les performances de la dernière version de PROF-CL sur les amas du code AMICO il est nécessaire d'extraire des différents fichiers d'AMICO et d'EUCLID les informations intéressantes. AMICO fournit deux fichiers : détection.fits et association.fits. Le premier fournit une liste d'identifiant des amas détectés ainsi que certaines de leurs propriétés. Le second fournit un matching entre les identifiants des amas, ceux des galaxies qui leur appartiennent et les memberships. Il faut noter que les galaxies peuvent potentiellement appartenir à plus d'un amas.\newline
+      \subsubsection{Matching des données AMICO}
+        Pour obtenir les positions des galaxies des amas il est nécessaire d'aller faire correspondre les idenfiants des galaxies dans le fichier association avec le catalogue complet de $300\rm{deg^2}$ de la simulation. Le fichier complet faisant plus de $7\rm{GB}$ la difficulté principale a résidé dans le fait de faire correspondre coordonnées, identifiant et memberships le plus efficacement possible.\newline
+        Pour ce faire on a trié par identifiant croissant de galaxies le tableau de données du fichier de détection. Soit $L_d$ la liste des identifiants triés du fichier de détection. À partir de celle-ci on a construit une liste d'identifiants uniques $L_{\rm{ID}}$ de galaxies ainsi qu'une autre d'indices $L_i$ permettant de reconstruire la liste complète via la relation $L_d = L_{\rm{ID}} ( L_i)$. On a alors pu sélectionner dans le fichier complet l'ensemble des coordonnées correspondant aux identifiants dans $L_{\rm{ID}}$ et trier le tableau obtenu par identifiants croissants. En appliquant $L_i$ à ce tableau on reconstruit alors un tableau qui fait correspondre identifiants de galaxies, identifiants d'amas, membership et coordonnées.
+      \subsubsection{Matching des données d'EUCLID}
+        Afin d'étudier les résultats de PROF-CL il faut aussi fitter un profil NFW tronqué directement sur les halos issus de la simulation. La fragmentation et l'over-merging\footnote{Fraction d'amas associés à plus d'un halo} assez élevés d'AMICO vont avoir tendance à ce que l'algorithme fragmente les halos en plusieurs amas ou au contraire associe à un amas plusieurs halos. On s'attend donc à ce que les galaxies associées aux halos ne soient pas les mêmes que celles associées aux amas.\newline
+        Le matching dans le cas des halos est plus complexe. AMICO fournit un fichier fits fournissant un lien entre amas détectés et halos associés. Un amas peut apparaître plusieurs fois dans le fichier s'il y a over-merging et un halo de même s'il y a de la fragmentation. Puisque qu'un amas peut être lié à plusieurs halos on n'est pas en mesure dans certains cas de savoir à quel halo comparer l'amas. Dans ce cas on choisit le halo le plus proche de l'amas comme point de comparaison. On peut ainsi construire un tableau liant bijectivement amas détecté et halo issu de la simulation.\newline
+        Une fois le matching amas-halo effectué il faut lier galaxies et halos via un cinquième fichier fits équivalent au catalogue complet à l'exception que cette fois à chaque galaxie ne correspond qu'un seul halo. Si l'on appelle $L_h$ la liste des halos bijectivement associée à celle des amas, on peut sélectionner les coordonnées des galaxies en ne gardant que celles associés aux amas listés dans $L_h$.
+        
+      
+    
+\newpage
+\bibliography{ref}
+\bibliographystyle{apalike}
+
+\newpage
+\appendix
+\section{Solutions analytiques de la densité de surface NFW/NFW tronqué}
+\label{Solutions analytiques de la densité de surface NFW/NFW tronqué}
+  \subsection{NFW circulaire}
+	  Pour un profil NFW circulaire, la densité surfacique donnée par la solution de Eq.(\ref{eq:Surface_density}) peut être écrite comme	
+  	\begin{equation}
+  	  \label{eq:NFW_tilde_tronque}
+  		\Sigma_{\rm{NFW}} (R) = \frac{N(r_{-2})}{\pi r_{-2}^2} \tilde{\Sigma}_{\rm{NFW}} (R/r_{-2})
+  	\end{equation}
+  	La densité surfacique adimensionnée $\tilde{\Sigma}_{\rm{NFW}}$ étant donnée par\cite{Lokas2001}
+    \begin{equation}
+    	\tilde{\Sigma}_{\rm{NFW}} (X) =  \frac{1 - \rm{C}^{-1} (1/X)/ | X^2 -1 |^{1/2} }{X^2 -1}
+    \end{equation}  
+    Où l'on a définit
+    \begin{equation}
+    	\rm{C}^{-1}(Y) = 
+    	\begin{cases}  	
+    	 	\arccos(Y) & \rm{si} \ \ R>r_{-2}\\
+   	  	\arccosh(Y) & \rm{si} \ \ R<r_{-2}
+    	\end{cases}
+    \end{equation}
+  
+  \subsection{NFW circulaire tronqué}
+    Contrairement aux "mocks académiques" les amas sélectionnés par AMICO pour le Cluster Challenge IV sont tronqués.\newline 
+    L'expansion d'Hubble va avoir tendance à décaler les vitesses le long de la ligne de visée des galaxies en arrière plan vers des valeurs positives et celles des galaxies en avant plan vers des valeurs négatives. On peut alors définir la distance maximale selon la ligne de visée par rapport au centre de l'amas noté $r_{\rm{max}}$ comme la distance telle que l'expansion de Hubble soit égale à $\kappa$ fois la dispersion de vitesse de l'amas moyennée dans un disque centré sur l'amas, i.e.
+    \begin{equation}
+      H_0 r_{\rm{max}} = \kappa \sigma_v
+    \end{equation}
+    Les amas étant tronqués par AMICO au niveau de la sphère virielle, il est nécessaire quand on calcule la densité surfacique projeté NFW dans Eq.(\ref{eq:Surface_density}) d'effectuer la transformation $\infty \rightarrow r_{\rm{max}}$ au niveau de la borne supérieure.\newline
+    Dans le cas considéré ici où $r_{\rm{max}} = r_{\rm{vir}}$ la solution de Eq.(\ref{eq:Surface_density}) avec la nouvelle borne supérieure s'écrit \cite{Mamon2010}
+    \begin{equation}
+      \Sigma_{\rm{NFW}}^{\rm{trunc}} (R , r_{\rm{vir}}) = \frac{N(r_{-2})}{\pi r_{-2}^2} \tilde{\Sigma}_{\rm{NFW}}^{\rm{trunc}} \left ( \frac{R}{r_{-2}} , c \right )
+    \end{equation}
+    Où l'on a défini
+    \begin{equation}
+      \tilde{\Sigma}_{\rm{NFW}}^{\rm{trunc}} ( X, c) = \frac{1}{2 \log 2 - 1}
+      \begin{cases}
+        \frac{1}{(1-X^2)^{3/2}} \arccosh \left (\frac{c+X^2}{(c+1)X} \right ) - \frac{1}{c+1} \frac{\sqrt{c^2 - X^2}}{1-X^2} & \mbox{si } 0 < X < 1 \\
+        \frac{\sqrt{c^2 -1} (c+2)}{3(c+1)^2} + \frac{(2 - c - 4 c^2 - 2 c^3)(X-1)}{5(c+1)^2 \sqrt{c^2 -1}} & \mbox{si } X = 1 \\
+        \frac{1}{c+1} \frac{\sqrt{c^2 - X^2}}{X^2-1} - \frac{1}{(X^2-1)^{3/2}} \arccos \left (\frac{c+X^2}{(c+1)X} \right ) & \mbox{si } 1 < X < c \\
+        0 & \mbox{si } X = 0 \mbox{ ou } X > c
+      \end{cases}
+    \end{equation}
+
+\newpage
+\section{Algorithmes de minimisation}    
+\label{Algo}
+    
+    
+\newpage
+\section{Systèmes de coordonnées utilisés dans PROF-CL}
+\label{coord}
+	Dans le code PROF-CL plusieurs systèmes de coordonnées sont utilisés suivant que l'on considère des amas circulaires ou elliptiques. On en fait ici la synthèse.
+    \subsection{Coordonnées de référence}
+    		Le premier jeu de coordonnées utilisé est celui à partir duquel sont défini les positions des amas et des galaxies dans les simulations académiques et semi-analytiques. Les coordonnées utilisées sont les coordonnées équatoriales $(x, y)$ où $\bm{\hat{x}}$ pointe vers l'Ouest et $\bm{\hat{y}}$ vers le Nord.\par
+    		De fait si l'on appelle $RA, Dec$ respectivement l'ascension droite, la déclinaison d'une galaxie alors on a les relations
+    		
+    		\begin{align*}
+    			x & = - RA / \cos( Dec ) \\
+    			y & = Dec
+    		\end{align*}
+    		
+    	\subsection{Coordonnées locales elliptiques centrées}
+    		Pour les amas elliptiques centrés il est utile de définir des nouvelles coordonnées $(u, v)$ liées à l'amas définies telles que $\bm{\hat{u}}$ soit aligné le long du demi-grand axe de l'ellipse en direction du Nord à $PA$ nul et $\bm{\hat{v}}$ le long du demi-petit axe en direction de l'Est à $PA$ nul.\par
+    		Ainsi les nouvelles coordonnées s'écrivent
+    		
+    		\begin{align*}
+    			u & = - x \sin (PA) + y \cos (PA) \\
+    			v & = -x \cos (PA) - y \sin (PA)
+    		\end{align*}
+    		
+    		Le rayon projeté réel est naturellement donné par $R = \sqrt{u^2 + v^2}$. Cependant, lors du traitement des amas elliptiques on est amené à "circulariser" l'amas pour pouvoir en extraire les probabilités de présence des galaxies sachant les paramètres. Cela revient en pratique à "décompresser" l'amas selon son demi-grand axe en le divisant par un facteur $1-e$, i.e. en définissant une nouvelle coordonnée $v^{'} = v/(1-e)$. Il est alors pratique de définir un rayon elliptique comme
+    		
+    		\begin{equation}
+    			\mathscr{R} = \sqrt{u^2 + {v^{'}}^2} = \sqrt{u^2 + \left ( \frac{v}{1-e} \right ) ^2}
+    		\end{equation}
+    
+\end{document}

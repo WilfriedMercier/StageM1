@@ -1,0 +1,49 @@
+This is BibTeX, Version 0.99d (TeX Live 2015/dev/Debian)
+Capacity: max_strings=35307, hash_size=35307, hash_prime=30011
+The top-level auxiliary file: rapport.aux
+The style file: apalike.bst
+Database file #1: ref.bib
+Warning--I didn't find a database entry for "Einasto"
+Warning--empty journal in NelderMead
+You've used 18 entries,
+            1935 wiz_defined-function locations,
+            598 strings with 7539 characters,
+and the built_in function-call counts, 8035 in all, are:
+= -- 734
+> -- 474
+< -- 9
++ -- 178
+- -- 170
+* -- 735
+:= -- 1457
+add.period$ -- 55
+call.type$ -- 18
+change.case$ -- 174
+chr.to.int$ -- 18
+cite$ -- 19
+duplicate$ -- 245
+empty$ -- 475
+format.name$ -- 196
+if$ -- 1512
+int.to.chr$ -- 1
+int.to.str$ -- 0
+missing$ -- 18
+newline$ -- 94
+num.names$ -- 54
+pop$ -- 140
+preamble$ -- 1
+purify$ -- 175
+quote$ -- 0
+skip$ -- 188
+stack$ -- 0
+substring$ -- 489
+swap$ -- 16
+text.length$ -- 0
+text.prefix$ -- 0
+top$ -- 0
+type$ -- 106
+warning$ -- 1
+while$ -- 50
+width$ -- 0
+write$ -- 233
+(There were 2 warnings)

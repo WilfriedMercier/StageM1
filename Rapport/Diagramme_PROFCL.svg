@@ -1,0 +1,143 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg"
+    xmlns:latexdraw="http://latexdraw.sourceforge.net/namespaces/latexdraw"
+    version="1.1" baseProfile="full">
+    <defs>
+        <marker overflow="visible" orient="auto" id="arrow2-844">
+            <path
+                d="M 0.0 0.0 L -4.652083333333334 1.6614583333333335 L -2.79125 0.0 L -4.652083333333334 -1.6614583333333335 z "
+                latexdraw:arrSizeNum="2.0" fill="black"/>
+        </marker>
+        <marker overflow="visible" orient="auto" id="arrow2-848">
+            <path
+                d="M 0.0 0.0 L 4.652083333333334 1.6614583333333335 L 2.79125 0.0 L 4.652083333333334 -1.6614583333333335 z "
+                latexdraw:arrSizeNum="2.0" fill="black"/>
+        </marker>
+        <marker overflow="visible" orient="auto" id="arrow2-851">
+            <path
+                d="M 0.0 0.0 L -4.652083333333334 1.6614583333333335 L -2.79125 0.0 L -4.652083333333334 -1.6614583333333335 z "
+                latexdraw:arrSizeNum="2.0" fill="black"/>
+        </marker>
+    </defs>
+    <g>
+        <g latexdraw:type="rectangle" id="id828">
+            <rect x="459.0" y="55.0" width="278.0" height="64.0"
+                latexdraw:borderPos="outer" stroke-width="2.0"
+                stroke="black" fill="none"/>
+        </g>
+        <g latexdraw:type="text" id="id829" font-family="Dialog"
+            fill="black" font-size="18" latexdraw:x="533.0">
+            <text x="533.0" y="248.0"><![CDATA[Test ellipticité ?]]></text>
+        </g>
+        <g latexdraw:type="rhombus" id="id832" latexdraw:points="500.0 167.0 700.0 167.0 500.0 314.0 700.0 314.0">
+            <polygon
+                points="600.0,168.24106 698.31146,240.5 600.0,312.75894 501.6885,240.5"
+                latexdraw:borderPos="outer" stroke-width="2.0"
+                stroke="black" fill="none"/>
+        </g>
+        <g latexdraw:type="text" id="id833" font-family="Dialog"
+            fill="black" font-size="18" latexdraw:x="449.0">
+            <text x="449.0" y="589.0"><![CDATA[Test fond ?]]></text>
+        </g>
+        <g latexdraw:type="rhombus" id="id836" latexdraw:points="399.0 508.0 597.0 508.0 399.0 655.0 597.0 655.0">
+            <polygon
+                points="498.0,509.24548 595.32245,581.5 498.0,653.7545 400.67758,581.5"
+                latexdraw:borderPos="outer" stroke-width="2.0"
+                stroke="black" fill="none"/>
+        </g>
+        <g latexdraw:type="text" id="id837" font-family="Dialog"
+            fill="black" font-size="18" latexdraw:x="509.0">
+            <text x="509.0" y="93.0"><![CDATA[RA, Dec, Membership]]></text>
+        </g>
+        <g latexdraw:type="text" id="id840" font-family="Dialog"
+            fill="black" font-size="18" latexdraw:x="143.0">
+            <text x="143.0" y="588.0"><![CDATA[Test recentrage ?]]></text>
+        </g>
+        <g latexdraw:type="rhombus" id="id843" latexdraw:points="120.0 508.0 318.0 508.0 120.0 655.0 318.0 655.0">
+            <polygon
+                points="219.0,509.24548 316.32242,581.5 219.0,653.7545 121.677574,581.5"
+                latexdraw:borderPos="outer" stroke-width="2.0"
+                stroke="black" fill="none"/>
+        </g>
+        <g latexdraw:type="line" id="id844">
+            <line x1="600.0" x2="600.0" y1="120.0" y2="170.0"
+                stroke-width="2.0" stroke="black"
+                latexdraw:rotationAngle="0.0" marker-end="url(#arrow2-844)"/>
+        </g>
+        <g latexdraw:type="joinedLines" id="id845">
+            <polyline
+                points="600.0,580.0 630.0,580.0 630.0,740.0 630.0,740.0 "
+                stroke-width="2.0" stroke="black" fill="none" latexdraw:rotationAngle="0.0"/>
+        </g>
+        <g latexdraw:type="joinedLines" id="id848">
+            <polyline
+                points="698.0,241.0 806.4775086505196,241.0 878.0,241.0 878.0,345.0 878.0,362.0 "
+                stroke-width="2.0" stroke="black" fill="none"
+                latexdraw:rotationAngle="0.0" marker-end="url(#arrow2-848)"/>
+        </g>
+        <g latexdraw:type="line" id="id851">
+            <line x1="600.0" x2="600.0" y1="313.0" y2="360.0"
+                stroke-width="2.0" stroke="black"
+                latexdraw:rotationAngle="0.0" marker-end="url(#arrow2-851)"/>
+        </g>
+        <g latexdraw:type="rectangle" id="id852">
+            <rect x="491.0" y="361.0" width="219.0" height="64.0"
+                latexdraw:borderPos="outer" stroke-width="2.0"
+                stroke="black" fill="none"/>
+        </g>
+        <g latexdraw:type="text" id="id853" font-family="Dialog"
+            fill="black" font-size="18" latexdraw:x="510.0">
+            <text x="510.0" y="399.0"><![CDATA[Équations elliptiques]]></text>
+        </g>
+        <g latexdraw:type="rectangle" id="id856">
+            <rect x="770.0" y="363.0" width="219.0" height="64.0"
+                latexdraw:borderPos="outer" stroke-width="2.0"
+                stroke="black" fill="none"/>
+        </g>
+        <g latexdraw:type="text" id="id857" font-family="Dialog"
+            fill="black" font-size="18" latexdraw:x="789.0">
+            <text x="789.0" y="401.0"><![CDATA[Équations circulaires]]></text>
+        </g>
+        <g latexdraw:type="text" id="id860" font-family="Dialog"
+            fill="black" font-size="18" latexdraw:x="564.0">
+            <text x="564.0" y="328.0"><![CDATA[Oui]]></text>
+        </g>
+        <g latexdraw:type="text" id="id863" font-family="Dialog"
+            fill="black" font-size="18" latexdraw:x="695.0">
+            <text x="695.0" y="227.0"><![CDATA[Non]]></text>
+        </g>
+        <g latexdraw:type="joinedLines" id="id866">
+            <polyline points="880.0,430.0 880.0,470.0 930.0,500.0 "
+                stroke-width="2.0" stroke="black" fill="none" latexdraw:rotationAngle="0.0"/>
+        </g>
+    </g>
+    <metadata>
+        <latexdraw:metadata>
+            <latexdraw:displayBorders>false</latexdraw:displayBorders>
+            <latexdraw:autoAdjust>true</latexdraw:autoAdjust>
+            <latexdraw:ppc>50</latexdraw:ppc>
+            <latexdraw:zoom>1.0</latexdraw:zoom>
+            <latexdraw:unit>cm</latexdraw:unit>
+            <latexdraw:classicGrid>false</latexdraw:classicGrid>
+            <latexdraw:gridGap>10</latexdraw:gridGap>
+            <latexdraw:code>0</latexdraw:code>
+            <latexdraw:displayGrid>true</latexdraw:displayGrid>
+            <latexdraw:magneticGrid>true</latexdraw:magneticGrid>
+            <latexdraw:autoUpdate>true</latexdraw:autoUpdate>
+            <latexdraw:version>2.0.8</latexdraw:version>
+            <latexdraw:size>
+                <latexdraw:width>1920</latexdraw:width>
+                <latexdraw:height>1019</latexdraw:height>
+            </latexdraw:size>
+            <latexdraw:position>
+                <latexdraw:x>0</latexdraw:x>
+                <latexdraw:y>28</latexdraw:y>
+            </latexdraw:position>
+            <latexdraw:dividerPosition>0.8645833333333334</latexdraw:dividerPosition>
+            <latexdraw:displayCodePanel>true</latexdraw:displayCodePanel>
+            <latexdraw:displayXScale>true</latexdraw:displayXScale>
+            <latexdraw:displayYScale>true</latexdraw:displayYScale>
+            <latexdraw:delimitorOpacity>130</latexdraw:delimitorOpacity>
+        </latexdraw:metadata>
+    </metadata>
+</svg>

@@ -1,0 +1,35 @@
+import matplotlib
+import numpy as np
+matplotlib.use('GTK3Cairo')
+import matplotlib.pyplot as plt
+
+#loga, likfalse, liktrue = np.genfromtxt("var_loga.dat", usecols=(0,1,2), unpack=True)
+
+#plt.plot(loga, likfalse, "ro", label="fixed params = found by PROFCL")
+#plt.plot(loga, liktrue, "bx", label="fixed params = true values")
+#plt.xlabel("log10(a/deg)")
+#plt.ylabel("-log(likelihood)")
+#plt.legend()
+#plt.show()
+
+lnlik = np.genfromtxt("output_phase_space_RA10.0_Dec20.0.dat", usecols=(3,), unpack=True)
+
+loga = np.linspace(-3, -0.7, 50)
+e = np.linspace(0, 0.99, 50)
+PA = np.linspace(0, 180, 50)
+
+
+
+loga = loga[:47]
+e = e[:47]
+
+x, y = np.meshgrid(loga, e)
+lnlik = lnlik[:2209]
+lnlik.shape = (47, 47)
+
+plt.pcolormesh(x, y, lnlik)
+plt.colorbar(label="- log10(likelihood)")
+plt.xlabel("log(a/deg)")
+plt.ylabel("ellipticity")
+plt.title("PA = 0")
+plt.show()

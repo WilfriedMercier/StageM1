@@ -1,0 +1,94 @@
+import matplotlib
+
+#setting appropriate and available library to use with plots
+matplotlib.use('GTK3Cairo')
+
+import matplotlib.pyplot as plt
+import numpy as np
+import time
+
+def plot_4_hist(datal, datar, nbin, true_val, vall_g, valr_g, ngall, ngalr, methodl, methodr, xlabel, figname):
+    #############################################
+    #   Variables                               #
+    #                                           #
+    #   datal    : data for the left hist plot  #
+    #   datar    : same for the right           #
+    #   nbin     : number of bins               #
+    #   true_val : exact known value            #
+    #   vall_g   : guessed values for left data #
+    #   valr_g   : same for the right           #
+    #   methodl  : name of left method          #
+    #   methodr  : same for the right           #
+    #   xlabel   : label of top x-axis          #
+    #   figname  : name of figure to save       #
+    #############################################
+
+    #alpha for hist transparency
+    alpha = 0.7
+
+    #Calculating distance in log scale radius from true solution
+    datal_diff = datal-true_val
+    datar_diff = datar-true_val
+
+    #Calculating dispersion
+    datal_disp       = np.sqrt(np.var(datal_diff))
+    datar_disp       = np.sqrt(np.var(datar_diff))
+    vall_guess_disp   = np.sqrt(np.var(vall_g))
+    valr_guess_disp   = np.sqrt(np.var(valr_g))
+
+    #Calculating mean
+    datal_mean       = np.mean(datal)
+    datar_mean       = np.mean(datar)
+    vall_guess_mean   = np.mean(vall_g)
+    valr_guess_mean   = np.mean(valr_g)
+
+    #Calculating median
+    datal_median = np.median(datal)
+    datar_median = np.median(datar)
+    vall_guess_median = np.median(vall_g)
+    valr_guess_median = np.median(valr_g)
+
+    #making subplots (grid of two lines and 1 column)
+    fig, ax = plt.subplots(2,2, figsize=(17, 10))
+
+    #plotting log scale radius hist
+    n, bins, patches = ax[0][0].hist(datal, bins=nbin, density=True, label=r'$\sigma$' + " = " + str(round(datal_disp,6)), alpha=alpha)
+    ax[0][0].set_xlabel("Best fitted " + xlabel)
+    ax[0][0].set_ylabel("Frequency")
+    ax[0][0].set_title(methodl + " method (" + str(ngall) + ")")
+
+    #plotting error
+    ax[1][0].hist(datal_diff/true_val, bins=2*nbin, density=True, cumulative=True, alpha=alpha)
+    ax[1][0].set_xlabel("Relative error " + r'$\xi$')
+    ax[1][0].set_ylabel("Cumulative normalized frequency")
+
+    #the same but for the de method
+    n2, bins, patches = ax[0][1].hist(datar, bins=nbin, density=True, label=r'$\sigma$' + ' = ' + str(round(datar_disp,6)), alpha=alpha)
+    ax[0][1].set_xlabel("Best fitted " + xlabel)
+    ax[0][1].set_ylabel("Frequency")
+    ax[0][1].set_title(methodr + " method (" + str(ngalr) + ")")
+
+    ax[1][1].hist(datar_diff/true_val, bins=2*nbin, density=True, cumulative=True, alpha=alpha)
+    ax[1][1].set_xlabel("Relative error " + r'$\xi$')
+    ax[1][1].set_ylabel("Cumulative normalized frequency")
+
+    #Plotting mean and median, guesses and true values
+    max = np.max(n)
+    ax[0][0].plot([datal_mean, datal_mean],[0, max], "yellow", label="mean = " + str(round(datal_mean,6)))
+    ax[0][0].plot([datal_median, datal_median], [0, max], "orange", label="median = " + str(round(datal_median,6)))
+    ax[0][0].plot([vall_guess_median, vall_guess_median], [0, max], "red", label="median guess = " + str(round(vall_guess_median,6)))
+    ax[0][0].plot([vall_guess_mean, vall_guess_mean], [0, max], "black", label="mean guess = " + str(round(vall_guess_mean,6)))
+    ax[0][0].plot([true_val, true_val], [0, max], "violet", label="exact value = " + str(round(true_val,6)))
+
+    max = np.max(n2)
+    ax[0][1].plot([datar_mean, datar_mean], [0, max], "yellow", label="mean = " + str(datar_mean))
+    ax[0][1].plot([datar_median, datar_median], [0, max], "orange", label="median = " + str(datar_median))
+    ax[0][1].plot([valr_guess_median, valr_guess_median], [0, max], "red", label="median guess = " + str(round(valr_guess_median,6)))
+    ax[0][1].plot([valr_guess_mean, valr_guess_mean], [0, max], "black", label="mean guess = " + str(round(valr_guess_mean,6)))
+    ax[0][1].plot([true_val, true_val], [0, max], "violet", label="exact value = " + str(round(true_val,6)))
+
+    ax[0][0].legend()
+    ax[0][1].legend()
+
+    #Saving figure
+    plt.savefig("plots/" + figname)

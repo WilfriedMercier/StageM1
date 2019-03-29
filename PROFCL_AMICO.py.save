@@ -1,0 +1,1533 @@
+#! /usr/local/bin/python3
+# -*- coding: latin-1 -*-
+
+
+# Program to extract structuiral parameters (size, ellipticity, position angle, center, background) of clusters
+
+# Author: Gary Mamon, with help from Christophe Adami, Yuba Amoura, Emanuel Artis and Eliott Mamon
+
+from __future__ import division
+import numpy as np
+import sys as sys
+import datetime
+import time
+from scipy.optimize import minimize, differential_evolution
+# from scipy.optimize import minimize_scalar
+# from scipy.optimize import fmin_tnc
+from scipy import interpolate
+from scipy import integrate
+from astropy import units as u
+from astropy.coordinates import SkyCoord
+
+import matplotlib
+import matplotlib.pyplot as plt
+#matplotlib.use('GTK3Cairo')
+plt.style.use('classic')
+
+"""PROFCL performs maximum likelihood fits of cluster radial profiles to galaxy positions
+    . considering a uniform background
+    . re-centering,
+    . performing an elliptical fit
+it returns the scale radius by a maximum likelihood method, and optionally:
+    the background, 
+    the new position of the center, 
+    and the ellptiicity and position angle
+This version loops over clusters, and for each cluster performs 2 x 2 x 2 x 2 = 16 fits
+ for the different combination of the 3 flags and 2 models. 9 possible minimization methods are provided.
+
+* Version 1.1 (2 Jan 2017)
+        > handles RA near zero
+        > handles clusters near equatorial poles
+        > formatted output
+        > cluster center is now properly re-initialized
+
+* Version 1.1.2 (19 Jan 2017)
+        > min |Dec| for frame transformation changed from 10 deg to 80 deg
+        > added welcome printout with version number and date
+        > print to standard output is now formatted
+        > allow to enter minimization method in lower case
+        > updated comments
+
+* Version 1.2 (6 June 2017)
+        > saves input parameters to file
+        > allows default parameters on input (from previous used ones)
+
+* Version 1.3 (6 July 2017)
+        > now handles academic mocks from Emmanuel Artis
+        > ReadClusterData rewritten for faster read (nupy.loadtxt instead of line by line)
+
+* Version 1.4 (13 July 2017)
+        > forces centers of academic mocks to (15,10) (Gary) or (0,0) (Emmanuel Artis)
+        > now reads (relative) tolerance of minimization as input
+
+* Version 1.5 (25 Sept 2017)
+        > computes median separation
+        > saves date and time for each fit
+        > saves median separation for each cluster
+
+* Version 1.6 (20 Oct 2017)
+        > circular region by Monte-Carlo integration
+        > changed sign of x to be that of RA
+        > ability to loop over Emmanuel's mocks
+        > created PROFCL_OpenFile function
+
+* Version 1.6.1 (29 Jan 2018)
+        > split version into version and vdate and version_date
+        > save version on output
+
+* Version 1.7 (7 Feb 2018)
+        > fixed bug for elliptical region with Monte-Carlo: use global variables set in log_likelihood
+        > replaced integrate_model... by N_points (0 for no integration)
+
+* Version 1.8 (13 Feb 2018)
+        > now handles FLAGSHIP log M > 14 clusters in (RA,Dec) = (10-20,10-20) square region.
+        > reads cluster file for centers
+
+* Version 1.10 (17 Apr 2018)
+        > changed tolerance criteria to:
+                TNC: absolute on parameters
+                SLSQP: absolute on function (lnlik)
+
+* Version 1.11 (24 Apr 2018)
+        > fixed bug (found by W. Mercier) in Median_Separation
+
+* Version 1.12 (27 Apr 2018) by W. Mercier
+        > Added median_flag for turning on/off median separation
+        > Added computation time for each cluster in output file
+        > Added initial gueses for RA_cen, Dec_cen, log_scale_radius, ellipticity, PA and log_background in output file
+        > Added command line argument to set output file name (if not by default it will be PROFCL.output)
+        > Added auto flag for automating procedure:
+            > set "manual" in input file (last line) for typing parameters as before
+            > set otherwise to trigger automated computation
+
+* Version 1.13 (3 May 2018) by W. Mercier & G. Mamon
+        > Added full command line arguments
+        > Corrected minor bug in RA when returning to cartesian coordinates
+        > Added median center for the guess
+        > Monte Carlo estimation of Nproj_tilde limited to circle is corrected
+            > bfgs still does not work (seems related to bounds)
+            > Monte Carlo stille yields predicted values at the end of computation (which takes place)
+
+* Version 1.14 (10 May 2018) by G. Mamon
+        > Monte-Carlo method: 
+            > reduced N_knots of spline from 10^4 to 100
+            > included N_knots for coredNFW model
+
+* Version 1.14.1 (5 June 2018) by G. Mamon
+        > major re-write
+        > fixed several bugs for elliptical and/or non-centered fits 
+        > fixed bug on final N(r_{-2}) normalization
+        > inserted series approximation for N_proj_tilde(X) for X < 0.01 with NFW
+        > added penalty function for unconstrained minimization methods
+        > maximum allowed shift in center relative to maximum radius is now a variable set to 1
+             (instead of being hard-coded to 0.5)
+        > prevent ellipticity from moving out of bounds with unconstrained methods (to avoid e < 0 or e > 1), 
+             yet penalizing
+        > prevent RA_cen and Dec_cen from moving out of bounds with unconstrained methods
+             (to avoid no galaxies in circle with Monte Carlo), yet penalizing 
+
+Not yet implemented:
+    * red vs blue galaxies
+    * forcing prob_mem = 1 for all galaxies
+    * uncertainties from bootstraps (but the systematic errors should completely dominate the statistical errors)
+    * split of cluster into sub-clusters (when cluster is obvisouly a merger of several)
+    * priors on parameters
+    ...
+
+** Geometry:
+* polar coordinates: PA measured East from North
+* cartesian coordinates: 
+    centered on DET-CL center (or median center of mock)
+    x increases towards West, hence opposite to RA
+    y increases with Dec
+* elliptical coordinates:
+    u: along major axis, points North for PA=0
+    v: along minor axis, points East (left) for PA=0
+"""
+
+
+def CheckType(X,module,varname):
+    """check that type is float, int, or numpy array"""
+    
+    # author: Gary Mamon
+    
+    t = type(X)
+    if t is not float and t is not np.float64 and t is not int and t is not np.ndarray:
+        raise ValueError("ERROR in ", module, " ", varname, 
+                         " is of type ", t, 
+                         ", but it must be a float or integer")
+                           
+
+def CheckTypeInt(X,module,varname):
+    """check that type is int"""
+    
+    # author: Gary Mamon
+    
+    t = type(X)
+    if t is not int:
+        raise ValueError("ERROR in ", module, " ", varname,
+                         " is of type ", t, 
+                         ", but it must be an integer")
+
+def CheckTypeIntorFloat(X,module,varname):
+    """check that type is int or float"""
+    
+    # author: Gary Mamon
+    
+    t = type(X)
+    if t is not int and t is not float and t is not np.float64:
+        raise ValueError("ERROR in ", module, " ", varname,
+                         " is of type ", t, 
+                         ", but it must be an integer or float")
+
+def CheckTypeBool(X,module,varname):
+    """check that type is bool"""
+    
+    # author: Gary Mamon
+    
+    t = type(X)
+    if t is not bool and t is not np.bool_:
+        raise ValueError("ERROR in ", module, " ", varname,
+                         " is of type ", t, 
+                         ", but it must be boolean")
+
+
+def ACO(X):
+    """ArcCos for |X| < 1, ArcCosh for |X| >= 1
+    arg: X (float, int, or numpy array)"""
+
+    # author: Gary Mamon
+
+    CheckType(X,"ACO",'X')
+    
+    # following 4 lines is to avoid warning messages
+    tmpX = np.where(X == 0, -1, X)
+    tmpXbig = np.where(np.abs(X) > 1, tmpX, 1/tmpX)
+    tmpXbig = np.where(tmpXbig < 0, HUGE, tmpXbig)
+    tmpXsmall = 1/tmpXbig
+    return ( np.where(np.abs(X) < 1,
+                      np.arccos(tmpXsmall),
+                      np.arccosh(tmpXbig)
+                     ) 
+           )
+
+def AngularSeparation(RA1,Dec1,RA2,Dec2,choice='cart'):
+    """angular separation given (RA,Dec) pairs [input and output in degrees]
+    args: RA_1, Dec_1, RA_2, Dec_2, choice
+    choice can be 'astropy', 'trig', or 'cart'"""
+
+    # author: Gary Mamon
+
+    # tests indicate that:
+    # 1) trig is identical to astropy, but 50x faster!
+    # 2) cart is within 10^-4 for separations of 6 arcmin, but 2x faster than trig
+    
+    if choice == "cart":
+        DeltaRA = (RA2-RA1) * np.cos(0.5*(Dec1+Dec2)*degree)
+        DeltaDec = Dec2-Dec1
+        separation = np.sqrt(DeltaRA*DeltaRA + DeltaDec*DeltaDec)
+    elif choice == "trig":
+        cosSeparation = np.sin(Dec1*degree)*np.sin(Dec2*degree) \
+                        + np.cos(Dec1*degree)*np.cos(Dec2*degree)*np.cos((RA2-RA1)*degree)
+        separation = ACO(cosSeparation) / degree
+    elif choice == "astropy":
+        c1 = SkyCoord(RA1,Dec1,unit="deg")
+        c2 = SkyCoord(RA2,Dec2,unit="deg")
+        separation = c1.separation(c2).deg
+    else:
+        raise ValueError("AngularSeparation: cannot recognize choice = ", choice)
+
+    return(separation)
+
+def RADec_from_dxdy(dx,dy):
+    """celestial coordinates given cartesian coordinates relative to new center (all in deg)"""
+
+    # author: Gary Mamon
+    # cosDec_cen_init, RA_cen, Dec_cen arrive as global variables
+    
+    RA  = cosDec_cen_init * RA_cen - dx
+    Dec = Dec_cen                  + dy
+
+    # handle crossing of RA=0
+    RA = np.where(RA >= 360.,  RA - 360., RA)
+    
+    return(RA,Dec)
+
+def xy_from_dxdy(dx,dy):
+    """cartesian coordinates relative to center of circular region (x points to -RA, y to +Dec) given cartesian coordinates relative to new center"""
+
+    # author: Gary Mamon
+    # Delta_x_cen and Delta_y_cen arrive as global variables
+    
+    x = dx + Delta_x_cen
+    y = dy + Delta_y_cen
+    return (x,y)
+
+def dxdy_from_xy(x,y):
+    """cartesian coordinates relative to new center (x points to -RA, y to +Dec) given cartesian coordinates relative to center fo circular region"""
+    # author: Gary Mamon
+    # Delta_x_cen and Delta_y_cen arrive as global variables
+    
+    dx = x + Delta_x_cen
+    dy = y - Delta_y_cen
+    return(dx,dy)
+
+def dxdy_from_uv(u,v):
+    """cartesian coordinates relative to center (x points to -RA, y to +Dec) given elliptical coordinates"""
+    # author: Gary Mamon
+    # cosPA and sinPA arrive as global variables
+    
+    dx = -u * sinPA - v * cosPA
+    dy =  u * cosPA - v * sinPA
+    return(dx,dy)
+
+def dxdy_from_RADec(RA,Dec):
+    """cartesian coordinates relative to center (x points to -RA, y to +Dec) given celestial coordinates"""
+    # author: Gary Mamon
+    # RA_cen, Dec_cen, cosDec_cen_init arrive as global variables
+
+    dx =  -1.* (RA  - RA_cen) * cosDec_cen_init
+    dy =        Dec - Dec_cen   
+    
+    # handle crossing of RA=0
+    dx = np.where(dx >= 180.,  dx - 360., dx)
+    dx = np.where(dx <= -180., dx + 360., dx)
+
+    return(dx,dy)
+
+def dxdy_from_RADec2(RA,Dec,RA_cen,Dec_cen):
+    """cartesian coordinates relative to center (x points to -RA, y to +Dec) given celestial coordinates:
+       same as dxdy_from_RADec but with fewer globals arriving"""
+    # author: Gary Mamon
+    # only cosDec_cen_init arrive as global variables
+
+    dx =  -1.* (RA  - RA_cen) * cosDec_cen_init
+    dy =        Dec - Dec_cen   
+    
+    # handle crossing of RA=0
+    dx = np.where(dx >= 180.,  dx - 360., dx)
+    dx = np.where(dx <= -180., dx + 360., dx)
+
+    return(dx,dy)
+
+def uv_from_dxdy(dx,dy):
+    """elliptical coordinates u (along major axis) and v (along minor axis), given cartesian coordinates relative to ellipse (all in deg)"""
+    # author: Gary Mamon
+    # sinPA and cosPA arrives as a global variables
+
+    # rotate to axes of cluster (careful: PA measures angle East from North)
+    u = - dx * sinPA + dy * cosPA
+    v = - dx * cosPA - dy * sinPA
+    return(u,v)
+
+def uv_from_xy(x,y):
+    """elliptical coordinates u (along major axis) and v (along minor axis), given cartesian coordinates relative to circle (all in deg)"""
+    # author: Gary Mamon
+
+    # cartesian coordinates around new center
+    dx,dy = dxdy_from_xy(x,y)
+
+    # rotate to axes of cluster
+    u,v = uv_from_dxdy(dx,dy)
+
+    return(u,v)
+    
+def uv_from_RADec(RA,Dec):
+    """elliptical coordinates u (along major axis) and v (along minor axis), given celestial coordinates and PA (all in deg)"""
+    # author: Gary Mamon
+    # RA_cen, Dec_cen and PA_in_rd arrive as global variables
+
+    # cartesian coordinates around new center
+    dx,dy = dxdy_from_RADec(RA,Dec)
+    
+    # rotate to axes of cluster
+    u,v = uv_from_dxdy(dx,dy)
+
+    return(u,v)
+
+def RADec_from_uv(u,v):
+    """celestial coordinates given elliptical coordinates u (along major axis) and v (along minor axis)"""
+    # author: Gary Mamon
+
+    # cartesian coordinates around new center    
+    dx,dy = dxdy_from_uv(u,v)
+    RA,Dec = RADec_from_dxdy(dx,dy)
+    
+    return(RA,Dec)
+
+def R_ellip_from_dxdy(dx,dy):
+    """elliptical equivalent radius, given celestial coordinates and PA (all in deg) and ellipticity"""
+    # author: Gary Mamon
+    # ellipticity arrives as a global variable
+
+    # some uncontrained minimizers allow variables to go beyond bounds
+    # e.g. ellipticity > 1
+    if ellipticity > ellipticity_maxallow:
+        e = ellipticity_maxallow
+    else:
+        e = ellipticity
+    if e < ellipticity_minallow:
+        e = ellipticity_minallow
+
+    # rotate to axes of cluster
+    u,v = uv_from_dxdy(dx,dy)
+    v_decompressed = v/(1.-e)
+    return np.sqrt(u*u + v_decompressed*v_decompressed)
+
+def R_ellip_from_RADec(RA,Dec):
+    """elliptical equivalent radius, given celestial coordinates and PA (all in deg) and ellipticity"""
+    # author: Gary Mamon
+    # ellipticity arrives as a global variable
+    
+    # some uncontrained minimizers allow variables to go beyond bounds
+    # e.g. ellipticity > 1
+    if ellipticity > ellipticity_maxallow:
+        e = ellipticity_maxallow
+    else:
+        e = ellipticity
+    if e < ellipticity_minallow:
+        e = ellipticity_minallow
+
+    # rotate to axes of cluster
+    u,v = uv_from_RADec(RA,Dec)
+    v_decompressed = v/(1.-e)
+    return np.sqrt(u*u + v_decompressed*v_decompressed)
+
+def R_ellip_from_xy(x,y):
+    """elliptical equivalent radius, given cartesian coordinates around circular region (all in deg)"""
+    # author: Gary Mamon
+    # ellipticity arrives as a global variable
+
+    # some uncontrained minimizers allow variables to go beyond bounds
+    # e.g. ellipticity > 1
+    if ellipticity > ellipticity_maxallow:
+        e = ellipticity_maxallow
+    else:
+        e = ellipticity
+    if e < ellipticity_minallow:
+        e = ellipticity_minallow
+
+    # rotate to axes of cluster
+    u,v = uv_from_xy(x,y)
+    v_decompressed = v/(1.-e)
+    return np.sqrt(u*u + v_decompressed*v_decompressed)
+
+def SurfaceDensity_tilde_NFW(X):
+    """Dimensionless cluster surface density for an NFW profile. 
+    arg: X = R/r_{-2} (positive float or array of positive floats), where r_{-2} is scale radius (slope -2)
+    returns: Sigma(r_{-2} X) / [N(r_{-2})/pi r_{-2}^2] (float, or array of floats)"""
+
+    # author: Gary Mamon
+
+    #  t = type(X)
+
+    # check that input is integer or float or numpy array
+    CheckType(X,"SurfaceDensity_tilde_NFW",'X')
+    
+    # stop with error message if input values are 0 (infinite surface density) or < 0 (unphysical)
+    minX = np.min(X)
+    if np.min(X) <= 0.:
+        raise ValueError("ERROR in SurfaceDensity_tilde_NFW: min(X) = ", 
+                         minX, " cannot be <= 0")
+
+    # compute dimensionless surface density
+    #   using series expansion for |X-1| < 0.001 (relative accuracy better than 1.2x10^-6)
+    denom = np.log(4.) - 1.
+    Xminus1 = X-1.
+    Xsquaredminus1 = X*X - 1.
+    return   ( np.where(abs(Xminus1) < 0.001, 
+                        1./3. - 0.4*Xminus1, 
+                        (1. 
+                         - ACO(1./X) / np.sqrt(abs(Xsquaredminus1))
+                         ) 
+                        / Xsquaredminus1 
+                        )
+               / denom 
+             )
+
+def SurfaceDensity_tilde_coredNFW(X):
+    """Dimensionless cluster surface density for a cored-NFW profile: rho(x) ~ 1/(1+x)^3
+    arg: X = R/r_{-2} (positive float or array of positive floats), where r_{-2} is radius of slope -2 
+      (not the natural scale radius for which x=r/a!)
+    returns: Sigma(r_{-2} X) / [N(r_{-2})/pi r_{-2}^2] (float, or array of floats)"""
+
+    # author: Gary Mamon
+
+    #  t = type(X)
+
+    # check that input is integer or float or numpy array
+    CheckType(X,"SurfaceDensity_tilde_coredNFW",'X')
+    
+    # stop with error message if input values are 0 (infinite surface density) or < 0 (unphysical)
+    if np.min(X) <= 0.:
+        raise ValueError("ERROR in SurfaceDensity_tilde_coredNFW: X cannot be <= 0")
+
+    # compute dimensionless surface density
+    #   using series expansion for |X-1| < 0.001 (relative accuracy better than 2.1x10^-6)
+    denom = np.log(3.) - 8./9.
+    Xsquared = X*X
+    Xminushalf = X-0.5
+    Xsquaredtimes4minus1 = 4.*Xsquared-1.
+    return (np.where(abs(Xminushalf) < 0.001, 
+                     0.4 - 24./35.*Xminushalf, 
+                     (8.*Xsquared + 1. 
+                      - 12.*Xsquared*ACO(0.5/X) / np.sqrt(abs(Xsquaredtimes4minus1))
+                      )
+                     / Xsquaredtimes4minus1**2
+                     ) 
+                / denom
+            )
+
+def SurfaceDensity_tilde_NFWtrunc(X,Xm):
+    """Dimensionless cluster surface density for a truncated NFW profile. 
+    args: X = R/r_{-2} (positive float or array of positive floats), where r_{-2} is scale radius (slope -2), Xm = R_truncation/R_{-2}
+    returns: Sigma(r_{-2} X) / [N(r_{-2})/pi r_{-2}^2] (float, or array of floats)"""
+
+    # author: Gary Mamon
+    # source: Mamon, Biviano & Murante (2010), eq. (B.4)
+
+    #  t = type(X)
+
+    # check that input is integer or float or numpy array
+    CheckType(X,'SurfaceDensity_tilde_NFWtrunc','X')
+    CheckType(Xm,'SurfaceDensity_tilde_NFWtrunc','Xm')
+
+
+    # stop with error message if input values are 0 (infinite surface density) or < 0 (unphysical)
+    if np.any(X) <= 0.:
+        raise print('ERROR in SurfaceDensity_tilde_NFWtrunc: min(X) = ',
+                    np.min(X), ' cannot be <= 0')
+
+    # compute dimensionless surface density
+    #   using series expansion for |X-1| < 0.001 (relative accuracy better than 1.2x10^-6)
+    denom = np.log(4.) - 1.
+    Xminus1 = X - 1.
+    Xsquaredminus1 = X*X - 1.
+    sqrtXmsquaredminus1 = np.sqrt(Xm*Xm - 1.)
+    Xmplus1 = Xm + 1.
+    Xmhalf = 0.5*Xm
+
+    # surfdens = np.where()
+    conditionList = [np.fabs(Xminus1) < 0.001, np.fabs(X-Xmhalf) < Xmhalf]
+    choiceList    = [sqrtXmsquaredminus1*(Xm+2)/(3.*Xmplus1**2.) \
+                     + Xminus1*(2-Xm-4*Xm*Xm-2*Xm**3)/(5*Xmplus1**2.*sqrtXmsquaredminus1), \
+                     ACO((X*X + Xm)/(X*(Xm+1.))) / ((1.-X*X) * np.sqrt(np.abs(X*X-1.))) \
+                     - np.sqrt(Xm*Xm-X*X)/((1.-X*X)*(Xm+1))]
+    return   ( np.select(conditionList,choiceList,default=0) / denom )
+
+def SurfaceDensity_tilde_Uniform(X):
+    """Dimensionless cluster surface density for uniform model.
+    arg: X = R/R_1 (positive float or array of positive floats), where R_1 is scale radius (radius where uniform model stops)
+    returns: Sigma(R_1 X) (float, or array of floats)"""
+    return(np.where(
+            X<1.,1.,0.
+            )
+           )
+
+def ProjectedNumber_tilde_NFW(X):
+    """Dimensionless cluster projected number for an NFW profile. 
+    arg: X = R/r_s (positive float or array of positive floats)
+    returns: N_proj(X r_{-2}) / N_proj(r_{-2}) (float, or array of floats)"""
+
+    # author: Gary Mamon
+
+    # check that input is integer or float or numpy array
+    CheckType(X,"ProjectedNumber_tilde_NFW",'X')
+
+    # stop with error message if input values are < 0 (unphysical)
+    if np.min(X) < 0.:
+        print("log_a = ", log_scale_radius)
+        print("ellipticity = ", ellipticity)
+        raise ValueError("ERROR in ProjectedNumber_tilde_NFW: X cannot be <= 0")
+
+    # compute dimensionless projected number
+    #   using series expansion for |X-1| < 0.001 (relative accuracy better than 1.2x10^-7)
+    denom = np.log(2.) - 0.5
+    Xtmp0 = np.where(X==0,1,X)
+    Xtmp1 = np.where(X==1,0,X)
+    return ( np.where(X==0.,
+                      0.,
+                      np.where(abs(X-1.) < 0.001, 
+                               1. - np.log(2.) + (X-1.)/3., 
+                               ACO(1./Xtmp0) / 
+                               np.sqrt(abs(1.-Xtmp1*Xtmp1)) 
+                               + np.log(0.5*Xtmp0)
+                      ) / denom
+                )
+    )
+
+def ProjectedNumber_tilde_coredNFW(X):
+    """Dimensionless cluster projected number for a cored NFW profile: rho(x) ~ 1/(1+x)^3
+    arg: X = R/r_{-2} (positive float or array of positive floats), where r_{-2} is radius of slope -2 
+      (not the natural scale radius for which x=r/a!)
+    returns: N(X r_{-2}) / N(r_{-2}) (float, or array of floats)"""
+
+    # author: Gary Mamon
+
+    # check that input is integer or float or numpy array
+    CheckType(X,"ProjectedNumber_tilde_coredNFW",'X')
+
+    # stop with error message if input values are < 0 (unphysical)
+    if np.min(X) < 0.:
+        raise ValueError("ERROR in ProjectedNumber_tilde_coredNFW: X cannot be < 0")
+
+    # compute dimensionless projected number
+    #   using series expansion for |X-1/2| < 0.001 (relative accuracy better than 4.11x10^-7)
+    denom = np.log(3.) - 8./9.
+    Xsquared = X*X
+    Xminushalf = X-0.5
+    Xsquaredtimes4minus1 = 4.*Xsquared-1.
+    
+    return (np.where(X==0.,0.,
+                     np.where(abs(Xminushalf) < 0.001, 
+                     5./6. - np.log(2.) + 0.4*Xminushalf, 
+                     (
+                (6*Xsquared-1.)*ACO(0.5/X) / np.sqrt(abs(Xsquaredtimes4minus1))
+                + np.log(X)*Xsquaredtimes4minus1 - 2.*Xsquared
+                )
+                     /Xsquaredtimes4minus1
+                     )
+                     )
+            / denom
+            )
+
+def ProjectedNumber_tilde_NFWtrunc(X,Xm):
+    """Dimensionless cluster projected number for a truncated NFW profile. 
+    args: X = R/r_{-2} (positive float or array of positive floats), where r_{-2} is scale radius (slope -2), Xm = R_truncation/R_{-2}
+    returns: N(r_{-2} X) / N(r_{-2}) (float, or array of floats)"""
+
+    # author: Gary Mamon
+    # source: Mamon, Biviano & Murante (2010), eq. (B.4)
+
+    # check that input is integer or float or numpy array
+    CheckType(X,'ProjectedNumber_tilde_NFWtrunc','X')
+    CheckType(Xm,'ProjectedNumber_tilde_NFWtrunc','Xm')
+
+    # stop with error message if input values are 0 (infinite surface density) or < 0 (unphysical)
+    if np.any(X) <= 0.:
+        raise print('ERROR in ProjectedNumber_tilde_NFWtrunc: min(X) = ',
+                    np.min(X), ' cannot be <= 0')
+
+    # compute dimensionless surface density
+    #   using series expansion for |X-1| < 0.001 (relative accuracy better than 1.2x10^-6)
+    denom = np.log(2.) - 0.5
+    Xdum = np.where(X>Xm, Xm, X)
+    Xminus1 = X - 1.
+    Xsquaredminus1 = Xdum*Xdum - 1.
+    sqrtXmsquaredminus1 = np.sqrt(Xm*Xm - 1.)
+    sqrtXmsqminusXsq = np.sqrt(Xm*Xm - Xdum*Xdum)
+    Xmplus1 = Xm + 1.
+
+    return   ( np.select(
+        [Xdum < 0.001 and Xdum > 0 and Xdum < Xm,
+         Xdum > 0.001 and Xdum < Xm],
+        [0.5*((1-Xm)/(Xm+1.)**2. + np.log((Xm+Xm)/((Xm+1)*Xdum))) * Xdum*Xdum,
+         ACO((Xm+Xdum*Xdum)/(Xdum*(Xm+1.)))/np.sqrt(np.abs(Xsquaredminus1)) - (Xm-sqrtXmsqminusXsq)/(Xm+1.) + np.log((Xm+1.)*(Xm-sqrtXmsqminusXsq)/Xdum)],
+        default=np.log(Xm+1)-Xm/(Xm+1.)
+    ) / denom)
+
+def ProjectedNumber_tilde_Uniform(X):
+    """Dimensionless cluster projected number for a uniform surface density profile
+    arg: X = R/R_cut (positive float or array of positive floats), where R_cut is radius of slope -2 
+      (not the natural scale radius for which x=r/a!)
+    returns: N(X R_cut) / N(R_cut) (float, or array of floats)"""
+
+    # author: Gary Mamon
+
+    # check that input is integer or float or numpy array
+    CheckType(X,"ProjectedNumber_tilde_Uniform","X")
+
+    # stop with error message if input values are < 0 (unphysical)
+    if np.min(X) < 0.:
+        raise ValueError("ERROR in ProjectedNumber_tilde_Uniform: X cannot be < 0")
+
+    return X*X   
+
+def Number_tilde_NFW(x):
+    """Dimensionless cluster 3D number for an NFW profile. 
+    arg: x = r/r_s (positive float or array of positive floats)
+    returns: N_3D(x r_{-2}) / N_3D(r_{-2}) (float, or array of floats)"""
+
+    # author: Gary Mamon
+
+    # check that input is integer or float or numpy array
+    CheckType(x,"Number_tilde_NFW","x")
+
+    # stop with error message if input values are < 0 (unphysical)
+    if np.min(x) < 0.:
+        raise ValueError("ERROR in Number_tilde_NFW: x cannot be < 0")
+
+    return ((np.log(x+1)-x/(x+1)) / (np.log(2.)-0.5))
+
+def Number_tilde_coredNFW(x):
+    """Dimensionless cluster 3D number for a cored NFW profile. 
+    arg: x = r/r_s (positive float or array of positive floats)
+    returns: N_3D(x r_{-2}) / N_3D(r_{-2}) (float, or array of floats)"""
+
+    # author: Gary Mamon
+
+    # check that input is integer or float or numpy array
+    CheckType(x,"Number_tilde_coredNFW",'x')
+
+    # stop with error message if input values are < 0 (unphysical)
+    if np.min(x) < 0.:
+        raise ValueError("ERROR in Number_tilde_coredNFW: x cannot be < 0")
+
+    return ((np.log(2*x+1)-2*x*(3*x+1)/(2*x+1)**2) / (np.log(3)-8./9.))
+
+def Number_tilde_Uniform(x):
+    """Dimensionless cluster 3D number for a uniform surface density profile. 
+    arg: x = r/R_1 (cutoff radius)
+    returns: N_3D(x R_1) / (Sigma/R_1) (float, or array of floats)"""
+
+    # author: Gary Mamon
+
+     # check that input is integer or float or numpy array
+    CheckType(x,"Number_tilde_Uniform",'x')
+
+    # stop with error message if input values are < 0 (unphysical)
+    if np.min(x) < 0.:
+        raise ValueError("ERROR in Number_tidle_Uniform: x cannot be < 0")
+
+    return np.where(x >= 1, 0, 1 / (np.pi * np.sqrt(1-x*x)))
+   
+def Random_radius(Xmax,model,Npoints,Nknots):
+    """Random R/r_{-2} from Monte Carlo for circular NFW model
+    args: R_max/R_{-2} model (NFW|coredNFW) number-of-random-points number-of-knots"""
+
+    # author: Gary Mamon
+
+    CheckType(Xmax,"Random_radius","Xmax")
+    CheckTypeInt(Npoints,"Random_radius","Npoints")
+
+    # random numbers
+    q = np.random.random_sample(Npoints)
+
+    # equal spaced knots in arcsinh X
+    asinhX0 = np.linspace(0., np.arcsinh(Xmax), num=Nknots+1)
+
+    X0 = np.sinh(asinhX0)
+    if model == "NFW":
+        N0 = ProjectedNumber_tilde_NFW(Xmax)
+    elif model == "coredNFW":
+        N0 = ProjectedNumber_tilde_coredNFW(Xmax)
+    else:
+        raise ValueError ("Random_radius: model = ", model, " not recognized")
+    
+    ratio = ProjectedNumber_tilde_NFW(X0) / N0
+
+    # spline on knots of asinh(equal spaced)
+    asinhratio = np.arcsinh(ratio)
+    # t = time.process_time()
+    spline = interpolate.splrep(asinhratio,asinhX0,s=0)
+    # if verbosity >= 2:
+    #     print("compute spline: time = ", time.process_time()-t)
+    # t = time.process_time()        
+    asinhq = np.arcsinh(q)
+    # if verbosity >= 2:
+    #     print("asinh(q): time = ", time.process_time()-t)
+    # t = time.process_time()        
+    asinhX_spline = interpolate.splev(asinhq, spline, der=0, ext=2)
+    # if verbosity >= 2:
+    #     print("evaluate spline: time = ", time.process_time()-t)
+    return (np.sinh(asinhX_spline))
+
+def Random_xy(Rmax,model,Npoints,Nknots,ellipticity,PA):
+    """Random x & y (in deg) from Monte Carlo for circular model (NFW or coredNFW)
+    args: R_max model (NFW|coredNFW) number-of-random-points number-of-knots ellipticity PA"""
+
+    # THIS FUNCTION IS NOT USED!
+    
+    # some uncontrained minimizers allow variables to go beyond bounds
+    # e.g. ellipticity > 1
+    if ellipticity > ellipticity_maxallow:
+        e = ellipticity_maxallow
+    else:
+        e = ellipticity
+    if e < ellipticity_minallow:
+        e = ellipticity_minallow
+
+    R_random = scale_radius * Random_radius(Rmax/scale_radius,model,Npoints,Nknots)
+    PA_random = 2 * np.pi * np.random.random_sample(Npoints) # in rd
+    theta_random = 2 * np.pi * np.random.random_sample(Npoints) # in rd
+    u_random = R_random * np.cos(theta_random)
+    v_random = R_random * np.sin(theta_random) * (1.-e)
+    x0_random = RA_cen_init + (RA_cen - RA_cen_init) * np.cos(Dec_cen_init * degree) 
+    y0_random = Dec_cen
+    x_random = x0_random - u_random*np.sin(PA*degree) - v_random*np.cos(PA*degree)
+    y_random = y0_random + u_random*np.cos(PA*degree) - v_random*np.sin(PA*degree)
+
+    if verbosity >= 3:
+        print("IS TRUE : ", x0_random == RA_cen_init, y0_random == Dec_cen_init)
+    return(x_random, y_random)
+    
+def ProjectedNumber_tilde_ellip_NFW(X,e):
+    """Dimensionless projected mass for non-circular NFW models
+    args:
+    X = R_sky/r_{-2}  (positive float or array of positive floats), where r_{-2} is radius of slope -2
+    e = ellipticity = 1-b/a (0 for circular)
+    returns: N(X r_{-2}) / N(r_{-2}) (float, or array of floats)"""
+
+    # author: Gary Mamon
+    # source: ~gam/EUCLID/CLUST/PROCL/denomElliptical.nb
+
+    if verbosity >= 5:
+        print("using 2D polynomial for ellipticity = ", e)
+    if N_points == 0 and DeltaCenter < TINY_SHIFT_POS and X < min_R_over_rminus2:
+        # integral of series expansion
+        if verbosity >= 2:
+            print("ProjectedNumber_tilde_ellip_NFW: series expansion")
+        Nprojtilde = X*X/ln16minus2 / (1.-e) * (-1. - 2.*np.log(0.25*X*(2.-e)/(1.-e)))
+    elif N_points == 0 and DeltaCenter < TINY_SHIFT_POS:
+        # analytical approximation, only for centered ellipses
+        if verbosity >= 2:
+            print("ProjectedNumber_tilde_ellip_NFW: polynomial")
+        lX = np.log10(X)
+        lNprojtilde = (
+            0.2002159160168399 + 0.23482973073606245*e + 
+            0.028443816507694702*e**2 + 3.0346488960850246*e**3 - 
+            32.92395216847275*e**4 + 155.31214454203342*e**5 - 
+            384.7956580823655*e**6 + 524.185430033757*e**7 - 
+            372.1186576278279*e**8 + 107.73575331855518*e**9 + 
+            1.084957208707404*lX - 0.15550331288872482*e*lX + 
+            0.19686182416407058*e**2*lX - 4.369613060146462*e**3*lX + 
+            25.786051119038408*e**4*lX - 76.01463442935163*e**5*lX + 
+            118.12160576401868*e**6*lX - 93.01512548879035*e**7*lX + 
+            29.20821583872627*e**8*lX - 0.350953887814871*lX**2 - 
+            0.024303352180603605*e*lX**2 - 0.1287797997529538*e**2*lX**2 + 
+            2.173015888479342*e**3*lX**2 - 8.937397688350035*e**4*lX**2 + 
+            17.468998705433673*e**5*lX**2 - 16.251979189333717*e**6*lX**2 + 
+            5.885069528670919*e**7*lX**2 - 0.012941807861877342*lX**3 + 
+            0.03797412877170318*e*lX**3 + 0.10378160335237464*e**2*lX**3 - 
+            0.5184579855114362*e**3*lX**3 + 1.2834168703734363*e**4*lX**3 - 
+            1.4165466726424798*e**5*lX**3 + 0.5653714436995129*e**6*lX**3 + 
+            0.04317093844555722*lX**4 + 0.013619786789711666*e*lX**4 - 
+            0.07157446386996426*e**2*lX**4 + 0.12635271935992576*e**3*lX**4 - 
+            0.1623323869598711*e**4*lX**4 + 0.06594832410639553*e**5*lX**4 + 
+            0.0005189446937787153*lX**5 - 0.012170985301529685*e*lX**5 + 
+            0.0078104820069108665*e**2*lX**5 - 
+            0.012168623850966566*e**3*lX**5 + 0.01120734375450095*e**4*lX**5 - 
+            0.0063164825849164104*lX**6 - 0.0003229562648197668*e*lX**6 + 
+            0.004797249087277705*e**2*lX**6 - 
+            0.0006839516501486773*e**3*lX**6 + 0.0005190658690337241*lX**7 + 
+            0.001323550523203948*e*lX**7 - 0.0009722709478153854*e**2*lX**7 + 
+            0.0004615622537881461*lX**8 - 0.0002037464879060379*e*lX**8 - 
+            0.00008236148148039739*lX**9
+        )
+        Nprojtilde = 10 ** lNprojtilde
+    elif N_points < 0 and DeltaCenter < TINY_SHIFT_POS:
+        # evaluate double integral
+        # should not be reached, because done in ProjectedNumber_tilde_ellip!
+        if verbosity >= 2:
+            print("ProjectedNumber_tilde_ellip_NFW: quadrature")
+        f = lambda V, U: SurfaceDensity_tilde_NFW(np.sqrt(U*U+V*V/(1-e)**2))
+        Nprojtilde = integrate.dblquad(f,0,X,lambda U: 0, lambda U: np.sqrt(X*X-U*U), epsabs=0., epsrel=0.001)
+        Nprojtilde = 4/(np.pi*(1.-e)) * Nprojtilde[0]
+    else:
+        # Monte Carlo integration
+        # should not be reached, because done in ProjectedNumber_tilde_ellip!
+        if verbosity >= 2:
+            print("ProjectedNumber_tilde_ellip_NFW: Monte Carlo")
+        if DeltaCenter_over_a < 1.e-6:
+            X_ellip = Random_radius(X/(1.-e), "NFW", N_points, N_knots)
+        else:
+            X_ellip = Random_radius((X+DeltaCenter_over_a)/(1.-e), "NFW", N_points, N_knots)
+        phi = 2. * np.pi * np.random.random_sample(N_points)
+        U = X_ellip * np.cos(phi)
+        V = X_ellip * np.sin(phi) * (1.-e)
+        if DeltaCenter_over_a < 1.e-6:
+            X_sky_MC = np.sqrt(U*U + V*V)
+        else:
+            dX = - U*np.sin(PA_in_degrees) - V*np.cos(PA_in_degrees)
+            dY =   U*np.cos(PA_in_degrees) - V*np.cos(PA_in_degrees)
+            X_MC = -(RA_cen - RA_cen_init)/np.cos(Dec_cen_init * degree) + dX
+            Y_MC = Dec_cen - Dec_cen_init + dY
+            X_sky_MC = np.sqrt(X_MC*X_MC + Y_MC*Y_MC)
+
+        X_in_circle = X_sky_MC[X_sky_MC < X]
+        frac = len(X_in_circle) / N_points
+        Nprojtilde = frac * ProjectedNumber_tilde_NFW(X/(1.-e))
+
+    if Nprojtilde == 0.:
+        raise ValueError("Projected Number_tilde_ellip_NFW: X e = ", X, e) 
+
+    return (Nprojtilde)
+
+def ProjectedNumber_tilde_ellip_coredNFW(X,e):
+    """Dimensionless projected mass for non-circular cored NFW models
+    args:
+    X = R/r_{-2}  (positive float or array of positive floats), where r_{-2} is radius of slope -2
+    e = 1-b/a (0 for circular)
+    returns: N(X r_{-2}) / N(r_{-2}) (float, or array of floats)"""
+
+    # author: Gary Mamon
+    # source: ~gam/EUCLID/CLUST/PROCL/denomElliptical.nb
+
+    if np.abs(e) < TINY:
+        return(ProjectedNumber_tilde_coredNFW(X))
+    
+    N_knots  = 100
+    if verbosity >= 3:
+        print("using 2D polynomial")
+    if N_points == 0:
+        lX = np.log10(X)
+        lNprojtilde = (
+            0.21076779174081403 - 0.1673534076933856*e - 
+            0.9471677808222536*e**2 + 11.648473045614114*e**3 - 
+            91.92475409478227*e**4 + 422.8544124895236*e**5 - 
+            1206.605470683992*e**6 + 2152.6556515394586*e**7 - 
+            2336.252720403306*e**8 + 1409.651246367505*e**9 - 
+            362.82577003936643*e**10 + 1.1400775160218775*lX - 
+            0.24603956803791907*e*lX + 0.4746353855804624*e**2*lX - 
+            5.213784368168905*e**3*lX + 28.349333190289443*e**4*lX - 
+            95.44143806235569*e**5*lX + 196.77037041806182*e**6*lX - 
+            242.5768688683326*e**7*lX + 164.00212699954048*e**8*lX - 
+            46.77921433973666*e**9*lX - 0.47280190984201714*lX**2 + 
+            0.030724988640708772*e*lX**2 + 0.14209201391142387*e**2*lX**2 - 
+            0.755436616271162*e**3*lX**2 + 3.306367265271173*e**4*lX**2 - 
+            7.25557673533242*e**5*lX**2 + 9.429315278575027*e**6*lX**2 - 
+            6.660238987320651*e**7*lX**2 + 2.04545992649397*e**8*lX**2 + 
+            0.03394971337975079*lX**3 + 0.09887824821508472*e*lX**3 - 
+            0.18041596878156793*e**2*lX**3 + 0.6289610806099004*e**3*lX**3 - 
+            1.4556318193802276*e**4*lX**3 + 2.1239832585391083*e**5*lX**3 - 
+            1.8325143147948293*e**6*lX**3 + 0.6369289158521704*e**7*lX**3 + 
+            0.07315774564006589*lX**4 - 0.037041022300377306*e*lX**4 + 
+            0.0029908382801743685*e**2*lX**4 - 0.03572991462536126*e**3*lX**4 - 
+            0.05039173454869054*e**4*lX**4 + 0.06826024306255776*e**5*lX**4 - 
+            0.028441143677024536*e**6*lX**4 - 0.019219238751868855*lX**5 - 
+            0.02361318179363677*e*lX**5 + 0.0405966969727285*e**2*lX**5 - 
+            0.052053157027219105*e**3*lX**5 + 0.05969376194544227*e**4*lX**5 - 
+            0.01240643979930337*e**5*lX**5 - 0.01026942895674158*lX**6 + 
+            0.01301415707276946*e*lX**6 - 0.007109228236235994*e**2*lX**6 + 
+            0.014751475808259498*e**3*lX**6 - 0.008400229615749667*e**4*lX**6 + 
+            0.004545329673990146*lX**7 + 0.0011480281966753895*e*lX**7 - 
+            0.002874103492006819*e**2*lX**7 - 0.0009871609971554144*e**3*lX**7 + 
+            0.0003921813852493623*lX**8 - 0.0014751021188585689*e*lX**8 + 
+            0.0006830554871586946*e**2*lX**8 - 0.0004114331203583239*lX**9 + 
+            0.00020132121960998451*e*lX**9 + 0.00005094309326516718*lX**10
+        )
+        Nprojtilde = 10. ** lNprojtilde
+    elif N_points < 0 and DeltaCenter < TINY_SHIFT_POS:
+        # evaluate double integral
+        # should not be reached, because done in ProjectedNumber_tilde_ellip!
+        if verbosity >= 2:
+            print("ProjectedNumber_tilde_ellip_coredNFW: quadrature")
+        f = lambda V, U: SurfaceDensity_tilde_coredNFW(np.sqrt(U*U+V*V/(1-e)**2))
+        Nprojtilde = integrate.dblquad(f,0,X,lambda U: 0, lambda U: np.sqrt(X*X-U*U), epsabs=0., epsrel=0.001)
+        Nprojtilde = 4/(np.pi*(1.-e)) * Nprojtilde[0]
+    else:
+        # Monte Carlo integration
+        # should not be reached, because done in ProjectedNumber_tilde_ellip!
+        if verbosity >= 2:
+            print("ProjectedNumber_tilde_ellip_coredNFW: Monte Carlo")
+        if DeltaCenter_over_a < 1.e-6:
+            X_ellip = Random_radius(X/(1.-e), "coredNFW", N_points, N_knots)
+        else:
+            X_ellip = Random_radius((X+DeltaCenter_over_a)/(1.-e), "coredNFW", N_points, N_knots)
+        phi = 2. * np.pi * np.random.random_sample(N_points)
+        U = X_ellip * np.cos(phi)
+        V = (1.-e) * X_ellip * np.sin(phi)
+        if DeltaCenter_over_a < 1.e-6:
+            X_sky_MC = np.sqrt(U*U + V*V)
+        else:
+            dX = - U*np.sin(PA_in_degrees) - V*np.cos(PA_in_degrees)
+            dY =   U*np.cos(PA_in_degrees) - V*np.cos(PA_in_degrees)
+            X_MC = -(RA_cen - RA_cen_init)/np.cos(Dec_cen_init * degree) + dX
+            Y_MC = Dec_cen - Dec_cen_init + dY
+            X_sky_MC = np.sqrt(X_MC*X_MC + Y_MC*Y_MC)
+
+        X_in_circle = X_sky_MC[X_sky_MC < X]
+        frac = len(X_in_circle) / N_points
+        Nprojtilde = frac * ProjectedNumber_tilde_coredNFW(X/(1.-e))
+
+
+    return (Nprojtilde)
+
+def ProjectedNumber_tilde_Uniform(X):
+    """Dimensionless cluster projected number for a uniform model, FOR TESTING ONLY
+    arg: X = R/R_1 (positive float or array of positive floats), where R_1 is scale radius (radius where uniform model stops)
+    returns: N(R_1 X) / N(R_1) (float, or array of floats)"""
+
+    # author: Gary Mamon
+
+    return(np.where(X<1, X*X, 1.))
+
+def ProjectedNumber_tilde_ellip(R_over_a, model, e, DeltaRA, DeltaDec):
+    """Dimensionless cluster projected number of elliptical and/or shifted models relative to circular region
+    arguments:
+        R_over_a = R/r_{-2} (dimensionless radius) [positive float or array of positive floats]
+        model: 'NFW' or 'coredNFW'
+        e: ellipticity (default=0.) [dimensionless]
+        DeltaRA, DeltaDec: shift of position of model relative to circular region [deg]
+    returns: N_proj(R) / N(r_{-2}) (float or array of floats)"""
+
+    # author: Gary Mamon
+
+    # short-named variables for clarity
+    a = scale_radius
+    Z = R_over_a
+
+    if verbosity >= 2:
+        print("in ProjectedNumber_tilde_ellip: X e DeltaRA DeltaDec DeltaCenter N_points=",\
+              R_over_a, e, DeltaRA, DeltaDec, DeltaCenter, N_points)
+    if np.abs(e) < TINY and np.abs(DeltaCenter) < TINY_SHIFT_POS:
+        # centered circular
+        if verbosity >= 2:
+            print("ProjectedNumber_tilde_ellip: circular ...")
+        return (ProjectedNumbertilde(R_over_a,model))
+    
+    elif np.abs(e) < TINY and model == "uniform":
+        # shifted Uniform
+        if verbosity >= 2:
+            print("ProjectedNumber_tilde_ellip: uniform shifted ...")
+        shift_x, shift_y = dxdy_from_RADec(RA_cen_init+DeltaRA,Dec_cen_init+DeltaDec)
+        d = np.sqrt(shift_x**shift_x + shift_y*shift_y)
+        # area is intersection of circles
+        # from Wolfram MathWorld http://mathworld.wolfram.com/Circle-CircleIntersection.html
+        Rtmp = a * R_over_a
+        area =   Rtmp*Rtmp * np.arccos((d*d + Rtmp*Rtmp - a*a) / (2*d*Rtmp)) \
+               + a*a * np.arccos((d*d + a*a - Rtmp*Rtmp) / (2*d*a)) \
+               - 0.5*np.sqrt((-d+a+Rtmp) * (d+a-Rtmp) * (d-a+Rtmp) * (d+a+Rtmp))
+        # FOLLOWING IS PROBABLY INCORRECT!!!
+        return(background * area)
+
+    elif DeltaCenter < TINY_SHIFT_POS and N_points == 0 and model in ("NFW","coredNFW"):
+        # centered elliptical with polynomial approximation
+        if verbosity >= 2:
+            print("ProjectedNumber_tilde_ellip: polynomial ...")
+        if model == "NFW":
+            return(ProjectedNumber_tilde_ellip_NFW(R_over_a,e))
+        elif model == "coredNFW":
+            return(ProjectedNumber_tilde_ellip_coredNFW(R_over_a,e))
+
+    elif N_points < 0:
+        # double integral by quadrature
+        if verbosity >= 2:
+            print("ProjectedNumber_tilde_ellip: quadrature ...")
+        tol_quadrature = 10.**N_points
+        if DeltaCenter < TINY_SHIFT_POS:
+            f = lambda V, U: SurfaceDensity_tilde(np.sqrt(U*U+V*V/(1-e)**2),model)
+            Nprojtilde = integrate.dblquad(f,0,Z,lambda U: 0, lambda U: np.sqrt(Z*Z-U*U), epsabs=0., epsrel=tol_quadrature)     
+            Nprojtilde = 4./(np.pi*(1.-e)) * Nprojtilde[0]
+        else:
+            # CHECK FOLLOWING LINE!
+            f = lambda Y, X: SurfaceDensity_tilde(R_ellip_from_xy(a*X,a*Y)/a,model)
+            Nprojtilde = integrate.dblquad(f,-Z,Z,lambda X: -np.sqrt(Z*Z-X*X), lambda X: np.sqrt(Z*Z-X*X), epsabs=0., epsrel=tol_quadrature)
+            Nprojtilde = 1./(np.pi*(1.-e)) * Nprojtilde[0]
+
+    elif N_points >= 1000:
+        # Monte Carlo
+        if verbosity >= 2:
+            print("ProjectedNumber_tilde_ellip: Monte Carlo ... N_points = ", N_points)
+        N_knots = 100
+        Z_ellip_MC = Random_radius(R_over_a/(1.-e), model, N_points, N_knots)
+        phi = 2. * np.pi * np.random.random_sample(N_points)
+        U = Z_ellip_MC * np.cos(phi)
+        V = (1.-e) * Z_ellip_MC * np.sin(phi)
+        if np.abs(DeltaCenter) < TINY_SHIFT_POS:
+            Z_MC = np.sqrt(U*U + V*V)
+        else:
+            # add shift of center
+            dX,dY = dxdy_from_uv(U,V)
+            X = -1. * DeltaRA/np.cos(Dec_cen_init * degree) + dX
+            Y =       DeltaDec                              + dY
+            Z_MC = np.sqrt(X*X + Y*Y)
+        Z_in_circle = Z_MC[Z_MC < R_over_a]
+        frac = len(Z_in_circle) / N_points
+        # circular N_proj_tilde times fraction of points inside oversized circle
+        Nprojtilde = frac * ProjectedNumber_tilde(R_over_a/(1.-e),model)
+    else:
+        raise ValueError("ProjectedNumber_tilde_ellip: N_points = ", N_points, "DeltaCenter = ", DeltaCenter)
+    return(Nprojtilde)
+
+def SurfaceDensity_tilde(X,model,X_cut=0.):
+    """Dimensionless cluster surface density
+    arguments:
+        X = R/r_{-2} (dimensionless radius) [positive float or array of positive floats]
+        model: 'NFW' or 'coredNFW'
+    returns: Sigma(r_{-2} X) / [N(r_{-2})/pi r_{-2}^2]  (float or array of floats)"""
+
+    # author: Gary Mamon
+
+    if model == "NFW":
+        return SurfaceDensity_tilde_NFW(X)
+    elif model == "coredNFW":
+        return SurfaceDensity_tilde_coredNFW(X)
+    elif model == "NFWtrunc":
+        return SurfaceDensity_tilde_NFWtrunc(X,X_cut)
+    elif model == "uniform":
+        return SurfaceDensity_tilde_Uniform(X)
+    else:
+        raise ValueError("ERROR in SurfaceDensity_tilde: model = ", model, " is not recognized")
+
+def ProjectedNumber_tilde(X,model,e=0.,deltaCenter=0.,X_cut=0.):
+    """Dimensionless cluster projected number profile
+    arguments:
+        X = R/r_{-2} (dimensionless radius) [positive float or array of positive floats]
+        model: 'NFW' or 'coredNFW'
+        e: ellipticity (default=0.) [dimensionless]
+        DeltaRA, DeltaDec: shift of position of model relative to circular region [deg]
+    returns: N_proj(R) / N(r_{-2}) (float or array of floats)"""
+
+    # author: Gary Mamon
+
+    if verbosity >= 2:
+        print("ProjectedNumber_tilde: X e deltaCenter=",X,e,deltaCenter)
+    if X < -TINY:
+        raise ValueError("ERROR in ProjectedNumber_tilde: X = ", X, " cannot be negative")
+    elif X < TINY:
+        return 0
+    elif X < min_R_over_rminus2-TINY and model != 'NFW':
+        raise ValueError("ERROR in ProjectedNumber_tilde: X = ", X, " <= critical value = ", 
+                    min_R_over_rminus2)
+
+    if np.abs(e) < TINY and deltaCenter < TINY_SHIFT_POS:
+        if model == "NFW":
+            return ProjectedNumber_tilde_NFW(X)
+        elif model == "coredNFW":
+            return ProjectedNumber_tilde_coredNFW(X)
+        elif model == "NFWtrunc":
+            return ProjectedNumber_tilde_NFWtrunc(X,X_cut)
+        elif model == "uniform":
+            return ProjectedNumber_tilde_Uniform(X)
+    else:
+        if verbosity >= 2:
+            print("DeltaRA DeltaDec Nprojtilde = ", DeltaRA, DeltaDec, \
+                  ProjectedNumber_tilde_ellip(X,model,e,DeltaRA,DeltaDec))
+        return ProjectedNumber_tilde_ellip(X,model,e,DeltaRA,DeltaDec)
+
+def Number_tilde(x,model):
+    """Dimensionless cluster 3D number profile
+    arguments:
+        x = r/r_scale (dimensionless 3D radius) [positive float or array of positive floats]
+        model: 'NFW' or 'coredNFW' or 'Uniform' 
+        r_scale = r_{-2} (NFW or coredNFW) or R_cut (Uniform)"""
+
+    # author: Gary Mamon
+    
+    if verbosity >= 4:
+        print("Number_tilde: ellipticity=",ellipticity)
+
+    if model == "NFW":
+        return Number_tilde_NFW(x)
+    elif model == "coredNFW":
+        return Number_tilde_coredNFW(x)
+    elif model == "uniform":
+        return Number_tilde_Uniform(x)
+    else:
+        raise ValueError("ERROR in Number_tilde: model = ", model, " is not recognized")
+
+def PenaltyFunction(x, boundMin, boundMax):
+    """normalized penalty Fuunction applied to likelihood when one goes beyond bound"""
+
+    # exp10 arrives as global 
+
+    if boundMax <= boundMin:
+        pf = 0.
+
+    else:
+        xtmp = (x-boundMin) / (boundMax-boundMin)
+        xtmp2 = 2. * np.abs(xtmp-0.5)
+        # pf = np.where(xtmp2 > 1, np.exp(10.*xtmp2)-exp10, 0)
+        pf = np.where(xtmp2 > 1, np.sqrt(np.abs(xtmp2-1.)), 0)
+
+        if verbosity >= 3:
+            print("PenaltyFunction: x boundMin boundMax = ", x, boundMin, boundMax,\
+              " penalty = ", pf)
+
+    return(pf)
+
+def guess_ellip_PA(RA,Dec):
+    """ guess ellipticity and PA of cluster according to its 2nd moments """
+
+    # author: Gary Mamon
+    
+    dx,dy = dxdy_from_RADec2(RA,Dec,RA_cen_init,Dec_cen_init)
+
+    # guess ellipticity and PA from 2nd moments
+
+    xymean = np.mean(dx*dy)
+    x2mean = np.mean(dx*dx)
+    y2mean = np.mean(dy*dy)
+    tan2theta = 2*xymean/(x2mean-y2mean)
+    theta = 0.5*np.arctan(tan2theta)
+    PA_pred = theta / degree
+    if PA_pred < 0.:
+        PA_pred = PA_pred + 180.
+    A2 = (x2mean+y2mean)/2. + np.sqrt((x2mean-y2mean)**2/4+xymean*xymean)
+    B2 = (x2mean+y2mean)/2. - np.sqrt((x2mean-y2mean)**2/4+xymean*xymean)
+    ellipticity_pred = 1 - np.sqrt(B2/A2)
+    return ellipticity_pred, PA_pred
+
+def guess_center(RA, Dec):
+    return np.median(RA), np.median(Dec)
+
+def PROFCL_prob_galaxy():
+    """probability of projected radii for given galaxy position, model parameters and background
+    arguments:
+        RA, Dec: celestial coordinates [deg]
+        scale_radius: radius of 3D density slope -2) [deg]
+        ellipticity [dimensionless]
+        background: uniform background [deg^{-2}]
+        RA_cen, Dec_cen: (possibly new) center of model [deg]
+        model: 'NFW' or 'coredNFW' or 'Uniform'
+    returns: p(data|model)"""  
+
+    # author: Gary Mamon
+
+    a = scale_radius    # for clarity
+
+    # some uncontrained minimizers allow variables to go beyond bounds
+    # e.g. ellipticity > 1
+    if ellipticity > ellipticity_maxallow:
+        e = ellipticity_maxallow
+    else:
+        e = ellipticity
+    if e < ellipticity_minallow:
+        e = ellipticity_minallow
+
+    if model == "NFWtrunc":
+        X_cut = R_cut/a
+    else:
+        X_cut = 0.
+        
+    # DeltaNproj_tilde = ProjectedNumber_tilde(R_max/a, model, e, DeltaCenter) - ProjectedNumber_tilde(R_min/a, model, e, DeltaCenter)
+    Nproj_tilde_max =  ProjectedNumber_tilde(R_max/a, model, e, DeltaCenter, X_cut)
+    Nproj_tilde_min =  ProjectedNumber_tilde(R_min/a, model, e, DeltaCenter, X_cut)
+    DeltaNproj_tilde = Nproj_tilde_max - Nproj_tilde_min
+    if DeltaNproj_tilde == 0.:
+        raise ValueError("R_min R_max a e DeltaCenter N_p,tilde = ", \
+                         R_min, R_max, a, e, DeltaCenter,ProjectedNumber_tilde(R_max/a, model, e, DeltaCenter))
+    if background < TINY:
+        numerator = SurfaceDensity_tilde(R_ellip_over_a, model, X_cut)
+        denominator = a*a * (1.-e) * DeltaNproj_tilde
+    else:
+        Nofa = (N_tot - np.pi * (R_max*R_max - R_min*R_min) * background) / DeltaNproj_tilde
+        numerator = Nofa/(np.pi * a*a * (1.-e)) * SurfaceDensity_tilde(R_ellip_over_a, model, X_cut) \
+                    + background
+        denominator = N_tot
+
+    return(numerator / denominator)
+
+def PROFCL_LogLikelihood(params):
+    """general -log likelihood of cluster given galaxy positions
+    arguments:
+    RA_cen, Dec_cen: coordinates of cluster center [floats]
+    log_scale_radius: log of scale radius of the profile (where scale radius is in degrees) [float]
+    ellipticity: ellipticity of cluster (1-b/a, so that 0 = circular, and 1 = linear) [float]
+    PA: position angle of cluster (degrees from North going East) [float]
+    log_background: uniform background of cluster (in deg^{-2}) [float]
+    returns: -log likelihood [float]
+    assumptions: not too close to celestial pole 
+    (solution for close to celestial pole [not yet implemented]: 
+    1. convert to galactic coordinates, 
+    2. fit,
+    3. convert back to celestial coordinates for PA)"""
+
+    # authors: Gary Mamon with help from Yuba Amoura, Christophe Adami & Eliott Mamon
+                                    
+    global iPass
+    global Delta_x_cen, Delta_y_cen
+    global DeltaCenter, DeltaCenter_over_a
+    global DeltaRA, DeltaDec
+    global RA_cen, Dec_cen, log_scale_radius, ellipticity, PA, background
+    global scale_radius
+    global PA_in_rd, cosPA, sinPA
+    global R_ellip_over_a, DeltaRA_over_a, DeltaDec_over_a
+    global in_annulus
+    global N_points, N_points_flag
+
+    if verbosity >= 4:
+        print("entering LogLikelihood: R_min=",R_min)
+    iPass = iPass + 1
+                                    
+    # read function arguments (parameters and extra arguments)
+
+    RA_cen, Dec_cen, log_scale_radius, ellipticity, PA, log_background, R_cut = params
+
+    # RA, Dec, prob_membership, R_min, R_max, model = args
+
+    # if np.isnan(RA_cen):
+    #     raise ValueError("ERROR in PROFCL_LogLikelihood: RA_cen is NaN!")
+    # if np.isnan(Dec_cen):
+    #     raise ValueError("ERROR in PROFCL_LogLikelihood: Dec_cen is NaN!")
+
+    # ## checks on types of arguments
+    
+    # # check that galaxy positions and probabilities are in numpy arrays
+    # if type(RA) is not np.ndarray:
+    #     raise ValueError("ERROR in PROFCL_lnlikelihood: RA must be numpy array")
+    # if type(Dec) is not np.ndarray:
+    #     raise ValueError("ERROR in PROFCL_lnlikelihood: Dec must be numpy array")
+    # if type(prob_membership) is not np.ndarray:
+    #     raise ValueError("ERROR in PROFCL_lnlikelihood: prob_membership must be numpy array")
+
+    # # check that cluster center position are floats
+    # CheckTypeIntorFloat(RA_cen,"PROFCL_LogLIkelihood","RA_cen")
+    # CheckTypeIntorFloat(Dec_cen,"PROFCL_LogLIkelihood","Dec_cen")
+    
+    # # check that ellipticity and position angle are floats
+    # CheckTypeIntorFloat(ellipticity,"PROFCL_LogLIkelihood","ellipticity")
+    # CheckTypeIntorFloat(PA,"PROFCL_LogLIkelihood","PA")
+
+    # # check that min and max projected radii, and loga are floats or ints
+    # CheckTypeIntorFloat(R_min,"PROFCL_LogLIkelihood","R_min")
+    # CheckTypeIntorFloat(R_max,"PROFCL_LogLIkelihood","R_max")
+    # CheckTypeIntorFloat(log_scale_radius,"PROFCL_LogLIkelihood","log_scale_radius")
+   
+    # # check if out of bounds 
+    # if RA_cen < RA_cen_minallow - TINY:
+    #     if verbosity >= 2:
+    #         print ("RA_cen = ", RA_cen, " < RA_cen_min_allow = ", RA_cen_minallow)
+    #     return(HUGE)
+    # elif RA_cen > RA_cen_maxallow + TINY:
+    #     if verbosity >= 2:
+    #         print ("RA_cen = ", RA_cen, " > RA_cen_max_allow = ", RA_cen_maxallow)
+    #     return(HUGE)
+    # elif Dec_cen < Dec_cen_minallow - TINY:
+    #     if verbosity >= 2:
+    #         print ("Dec_cen = ", Dec_cen, " < Dec_cen_min_allow = ", Dec_cen_minallow)
+    #     return(HUGE)
+    # elif Dec_cen > Dec_cen_maxallow + TINY:
+    #     if verbosity >= 2:
+    #         print ("Dec_cen = ", Dec_cen, " > Dec_cen_max_allow = ", Dec_cen_maxallow)
+    #     return(HUGE)
+    # elif log_scale_radius < log_scale_radius_minallow - TINY:
+    #     if verbosity >= 2:
+    #         print ("log_scale_radius = ", log_scale_radius, " < log_scale_radius_min_allow = ", log_scale_radius_minallow)
+    #     return(HUGE)
+    # elif log_scale_radius > log_scale_radius_maxallow + TINY:
+    #     if verbosity >= 2:
+    #         print ("log_scale_radius = ", log_scale_radius, " > log_scale_radius_max_allow = ", log_scale_radius_maxallow)
+    #     return(HUGE)
+    # elif log_background < log_background_minallow - TINY:
+    #     if verbosity >= 2:
+    #         print ("log_background = ", log_background, " < log_background_min_allow = ", log_background_minallow)
+    #     return(HUGE)
+    # elif log_background > log_background_maxallow + TINY:
+    #     if verbosity >= 2:
+    #         print ("log_background = ", log_background, " > log_background_max_allow = ", log_background_maxallow)
+    #     return(HUGE)
+    # elif ellipticity < ellipticity_minallow - TINY:
+    #     if verbosity >= 2:
+    #         print ("ellipticity = ", ellipticity, " < ellipticity_min_allow = ", ellipticity_minallow)
+    #     return(HUGE)
+    # elif ellipticity > ellipticity_maxallow + TINY:
+    #     if verbosity >= 2:
+    #         print ("ellipticity = ", ellipticity, " > ellipticity_max_allow = ", ellipticity_maxallow)
+    #     return(HUGE)
+    # elif PA < PA_minallow - TINY:
+    #     if verbosity >= 2:
+    #         print ("PA = ", PA, " < PA_min_allow = ", PA_minallow)
+    #     return(HUGE)
+    # elif PA > PA_maxallow + TINY:
+    #     if verbosity >= 2:
+    #         print ("PA = ", PA, " > PA_max_allow = ", PA_maxallow)
+    #     return(HUGE)
+
+    # ## checks on values of arguments
+    
+    # # check that RAs are between 0 and 360 degrees
+    # RA_min = np.min(RA)
+    # if RA_min < 0.:
+    #     raise ValueError("ERROR in PROFCL_lnlikelihood: min(RA) = ", 
+    #                 RA_min, " must be >= 0")        
+    # RA_max = np.max(RA)
+    # if RA_max > 360.:
+    #     raise ValueError("ERROR in PROFCL_lnlikelihood: max(RA) = ", 
+    #                 RA_max, " must be <= 360")        
+    # if RA_cen < 0.:
+    #     raise ValueError("ERROR in PROFCL_lnlikelihood: RA_cen = ", 
+    #                 RA_cen, " must be >= 0") 
+    # if RA_cen > 360.:
+    #     raise ValueError("ERROR in PROFCL_lnlikelihood: RA_cen = ", 
+    #                 RA_cen, " must be <= 360") 
+    
+    # # check that Decs are between -90 and 90 degrees
+    # Dec_min = np.min(Dec)
+    # if Dec_min < -90.:
+    #     raise ValueError("ERROR in PROFCL_lnlikelihood: min(Dec) = ", 
+    #                 Dec_min, " must be >= -90")        
+    # Dec_max = np.max(Dec)
+    # if Dec_max > 90.:
+    #     raise ValueError("ERROR in PROFCL_lnlikelihood: max(Dec) = ", 
+    #                 Dec_max, " must be <= 90")        
+    # if Dec_cen < -90.:
+    #     raise ValueError("ERROR in PROFCL_lnlikelihood: Dec_cen = ", 
+    #                 Dec_cen, " must be >= -90") 
+    # if Dec_cen > 90.:
+    #     raise ValueError("ERROR in PROFCL_lnlikelihood: Dec_cen = ", 
+    #                 Dec_cen, " must be <= 90") 
+    
+    # # check that ellipticity is between 0 and 1
+    # if ellipticity < 0. or ellipticity > 1.:
+    #     print("ellipticity_minallow=",ellipticity_minallow)
+    #     raise ValueError("ERROR in PROFCL_lnlikelihood: ellipticity = ", 
+    #                 ellipticity, " must be between 0 and 1")     
+    
+    # # check that model is known
+    # if model != "NFW" and model != "coredNFW" and model != "Uniform":
+    #     raise ValueError("ERROR in PROFCL_lnlikelihood: model = ", 
+    #                 model, " is not implemented")
+    
+    # # check that R_min > 0 for NFW (to avoid infinite surface densities)
+    # # or R_min >= 0 for coredNFW
+    # if R_min <= 0. and model == "NFW":
+    #     raise ValueError("ERROR in PROFCL_lnlikelihood: R_min must be > 0 for NFW model")
+    # elif R_min < 0.:
+    #     raise ValueError("ERROR in PROFCL_lnlikelihood: R_min must be >= 0 for coredNFW model")
+
+    # # check that R_max > R_min
+    # if R_max <= R_min:
+    #     raise ValueError("ERROR in PROFCL_lnlikelihood: R_min = ", 
+    #                 Rmin, " must be < than R_max = ", R_max)
+
+    # check that coordinates are not too close to Celestial Pole
+    max_allowed_Dec = 80.
+    Dec_abs_max = np.max(np.abs(Dec_gal))
+    if Dec_abs_max > max_allowed_Dec:
+        raise ValueError("ERROR in PROFCL_lnlikelihood: max(abs(Dec)) = ",
+                    Dec_abs_max, " too close to pole!")
+
+    ## transform from RA,Dec to cartesian and then to projected radii
+    
+    # transform coordinate units from degrees to radians
+    RA_cen_in_rd  =  RA_cen * degree
+    Dec_cen_in_rd = Dec_cen * degree
+    PA_in_rd      =      PA * degree
+    cosPA         = np.cos(PA_in_rd)
+    sinPA         = np.sin(PA_in_rd)
+
+    a = 10. ** log_scale_radius
+    DeltaRA = RA_cen - RA_cen_init
+    DeltaDec = Dec_cen - Dec_cen_init
+    Delta_x_cen,Delta_y_cen = dxdy_from_RADec2(RA_cen,Dec_cen,RA_cen_init,Dec_cen_init)    
+    DeltaCenter = np.sqrt(Delta_x_cen*Delta_x_cen + Delta_y_cen*Delta_y_cen)
+    if DeltaRA > max_DeltaCenter:
+        DeltaRA = max_DeltaCenter
+    elif DeltaRA < - max_DeltaCenter:
+        DeltaRA = - max_DeltaCenter
+    if DeltaDec > max_DeltaCenter:
+        DeltaDec = max_DeltaCenter
+    elif DeltaDec < - max_DeltaCenter:
+        DeltaDec = - max_DeltaCenter
+    if DeltaCenter > max_DeltaCenter:
+        DeltaCenter = max_DeltaCenter
+        # will automatically be penalized 
+    
+    # some minimizers will change the center when this is meant to be fixed
+    # for N_points = 0, we change N_points to 1000 to compute a penalty
+    # flag, and then turn back N_points to 0
+    if DeltaCenter > TINY_SHIFT_POS and N_points == 0:
+        if verbosity >= 2:
+            print("off-center with N_points = 0: making N_points = 1000")
+        N_points = 1000
+        N_points_flag = True
+        
+    DeltaCenter_over_a = DeltaCenter / a
+    u,v = uv_from_RADec(RA_gal,Dec_gal)
+    if verbosity >= 2:
+        print("Log_Likelihood: len(u) = ", len(u))
+
+    # linear variables
+    scale_radius = 10.**log_scale_radius        # in deg
+    background   = 10.**log_background          # in deg^{-2}
+
+    # elliptical radii (in degrees)
+    R_ellip = R_ellip_from_RADec(RA_gal,Dec_gal)
+    R_ellip_over_a = R_ellip / scale_radius
+    DeltaRA_over_a = (RA_cen - RA_cen_init) / scale_radius
+    DeltaDec_over_a = (Dec_cen - Dec_cen_init) / scale_radius
+    
+    # check that elliptical radii are within limits of Mathematica fit
+    
+    if N_points == 0 and (np.any(R_ellip_over_a < min_R_over_rminus2) or np.any(R_ellip_over_a > max_R_over_rminus2)):
+        if verbosity >= 2:
+            print("log_likelihood: off limits for r_s min(X) max(X) X_min X_max= ", scale_radius, min_R_over_rminus2, max_R_over_rminus2, np.min(R_ellip_over_a), np.max(R_ellip_over_a))
+        return (HUGE)
+    elif verbosity >= 4:
+        print("OK for r_s = ", scale_radius)
+
+    ## likelihood calculation
+    
+    if verbosity >= 2:
+        print("Log_Likelihood: N_tot = ", len(R_sky))
+    if len(R_sky) == 0:
+        print("ERROR in PROFCL_lnlikelihood: ",
+              "no galaxies found with projected radius between ",
+              R_min, " and ", R_max,
+              " around RA = ", RA_cen, " and Dec = ", Dec_cen)
+        return(HUGE)
+    if R_max/scale_radius > max_R_over_rminus2:
+        if verbosity >= 2:
+            print("PROFCL_lnlikelihood: R_max a max_Rovera = ", R_max, scale_radius, max_R_over_rminus2)
+        return(HUGE)
+
+    prob = PROFCL_prob_galaxy()
+    
+    if verbosity >= 3:
+        print("\n\n PROBABILITY = ", prob, "\n\n")
+    if np.any(prob<=0):
+        if verbosity >= 2:
+            print("one p = 0, EXITING LOG_LIKELIHOOD FUNCTION")
+        return(HUGE)
+
+    if verbosity >= 2:
+        print("OK")
+
+    # print("prob=",prob)
+    lnlikminus = -1*np.sum(prob_membership*np.log(prob))
+
+    # penalization
+
+    sumPenalization = 0.
+    for i in range(len(params)):
+        penalization = PenaltyFunction(params[i],bounds[i,0],bounds[i,1])
+        sumPenalization += penalization
+
+    if N_points_flag:
+        N_points = 0
+        N_points_flag = False
+        if verbosity >= 2:
+            print("resetting N_points = 0")        
+
+    # optional print of parameters 
+    if verbosity >= 2:
+        print(">>> pass = ", iPass,
+              "-lnlik = ",       lnlikminus,
+              "penalization = ",  sumPenalization,
+              "RA_cen = ",           RA_cen,
+              "Dec_cen = ",          Dec_cen,
+              "log_scale_radius = ", log_scale_radius,
+              "ellipticity = ",      ellipticity,
+              "PA = ",               PA,
+              "log_background = ",   log_background
+              )
+        np.savetxt("profcl_debug2.dat" + str(iPass),np.c_[RA_gal,Dec_gal,u,v,R_ellip,prob])
+        ftest = open("profcl_debug2.dat" + str(iPass),'a')
+        ftest.write("{0:8.4f} {1:8.4f} {2:10.3f} {3:5.3f} {4:3.0f} {5:6.2f} {6:10.3f}\n".format(RA_cen, Dec_cen, log_scale_radius, ellipticity, PA, log_background, lnlikminus))
+        ftest.close()
+        ftest = open(debug_file,'a')
+        ftest.write("{0:8.4f} {1:8.4f} {2:10.3f} {3:5.3f} {4:3.0f} {5:6.2f} {6:10.3f}\n".format(RA_cen, Dec_cen, log_scale_radius, ellipticity, PA, log_background, lnlikminus))
+        ftest.close()
+
+    # return -ln likelihood + penalization
+    return (lnlikminus + sumPenalization)
+
+def PROFCL_Fit(RA, Dec, prob_membership,
+               params,
+               bounds,
+               R_min, R_max, model, 
+               background_flag, recenter_flag, ellipticity_flag, 
+               function=PROFCL_LogLikelihood,
+               method="TNC", bound_min=None, bound_max=None):
+    '''Maxmimum Likelihood Estimate of 3D scale radius 
+       (where slope of 3D density profile is -2) given projected data
+    arguments:
+        RA, Dec: coordinates of galaxies [numpy arrays of floats]
+        prob_membership: probability of membership in cluster of galaxies [numpy array of floats, between 0 and 1]
+        RA_cen, Dec_cen: coordinates of cluster center [floats]
+        log_scale_radius: log of scale radius of the profile (where scale radius is in degrees) [float]
+        ellipticity: ellipticity of cluster (1-b/a, so that 0 = circular, and 1 = linear) [float]
+        PA: position angle of cluster (degrees from North going East) [float]
+

@@ -1,0 +1,25 @@
+0
+M
+NFW
+1280
+0.4
+10
+3000
+-2.0
+10.0
+20.0
+-1.0
+n
+n
+0
+n
+test
+0.0001
+0 0
+1
+[1 1]
+../Mocks_Mamon_test
+n
+test.output
+PROFCL_detection.fits
+PROFCL_association.fits

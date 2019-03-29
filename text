@@ -1,0 +1,99 @@
+NAME\n    PROFCL
+DESCRIPTION\n    Find best cluster parameters by BLE. No option is mandatory. Input file must be located in the same directory in order for the program to load default values.
+                 Every option in input file can be changed by typing the desired option and value from the list below.
+SYNOPSIS\n    python3.5 PROFCL_v1.13 [-man options] [-auto] []
+
+OPTIONS   
+    -A    
+             Automatic mode option. If option is not trigered PROFCL will ask the user to enter manually each option.\n
+    -v, --verbosity=NUMBER
+             Verbosity (debug text). Must be followed by an integer between 0 and 5 (information given increases with number).
+    -m, --model=WORD
+             Model option must either be followed by NFW, cNFW or uniform.
+    -M, --method=WORD
+             Method option can be followed by tnc, bfgs, nm, de, lbb or powell.
+    -r, --rmaxovervir=NUMBER
+             Ratio of maximum over minimum allowed radii. Must be followed by a float.
+    -n, --npoints=NUMBER
+             Monte-Carlo option. Must be followed by the number of points (0 for analytical approximation).
+    -t, --tolerance=NUMBER
+             Absolute tolerance. Must be followed by a float.\n
+    -d, --mockdir=WORD
+             Mock data directory option. Must be followed by the directory location. 
+    -o, --output=WORD
+             Output file option. Must be followed by the name of the file.\n
+    -D, --datatype=OPTION
+             Data type to use. OPTION must always be a string between quotation mark. See DATA TYPE section for more information.
+    -a, --adaptativescale
+             Scale option. Adapt precision on each argument for better convergence.
+    -e
+             Ellipticity option.
+    -c
+             Re-centering option.
+    -b
+             Background option
+    -x
+             Extended data option. Only useful for debugging. Meant to disappear in later versions\n
+    -S
+             New fits save option. Fits data (galaxies, halo and clusters) selected by PROFCL will be saved. By default new files will not be saved.
+    --median=WORD
+             Median option. Must either be y for trigering median separation, n for no, or o for computing only median separation.
+    --minmemb=NUMBER
+             Minimum member of galaxies in a cluster.
+    --min=NUMBER
+             Minimum ID for cluster to test. This option does not work with AMICO data. Instead directly type list of clusters with -D option.
+    --max=NUMBER
+            Maximum ID for cluster to test.
+    --dfile=WORD, --detectionfile=WORD
+             File containg clusters data from AMICO. Only works with AMICO data.
+    --ddir=WORD, --detectiondir=WORD
+             Directory of AMICO detection file.
+    --afile=WORD, --associationfile=WORD
+             File containing galaxies data from AMICO. Only works with AMICO data.
+    --adir=WORD, --associationdir=WORD
+             Directory of AMICO association file.
+    --hfile=WORD, --halomatchingfile=WORD
+             Matching file between EUCLID halos and AMICO clusters. Only works with AMICO data.
+    --hdir=WORD, --halomatchingdir=WORD
+             Directory containing matching file between EUCLID halos and AMICO clusters. Only works with AMICO data.
+    --gfile=WORD, --galaxyfile=WORD
+             Linking file between galaxies and AMICO clusters. Only works with AMICO data.
+    --gdir=WORD, --galaxydir=WORD
+             Directory of linking file between galaxies and AMICO clusters. Only works with AMICO data.
+    --bfile=WORD, --blindfile=WORD
+             Blind file containing full EUCLID galaxies data. Only works with AMICO data.\n
+    --ndfile=WORD, --newdetectionfile=WORD
+             New detection file built with given selected clusters.
+    --nhafile=WORD, --newhaloassociationfile=WORD
+             New halo association file linking closest halos to selected clusters with galaxies data found within.
+    --ncafile=WORD, --newclusterassociationfile=WORD
+             New cluster association file linking selected clusters with galaxies data.
+    --loadinput=WORD
+             Input file's name from which options are loaded. Default value is PROFCL_[version of PROFCL]_input.dat.
+    --saveinput=WORD
+             Input file's name within wich options are saved. Default value is PROFCL_[version of PROFCL]_input.dat.\n
+    -s, --subclusters=NUMBER
+             Number of subclusters to test for deblending. NOT YET IMPLEMENTED.
+DATA TYPE\n    Information concerning OPTION for -D, --datatype argument. Default data are Mamon Mocks:
+    Artis Mocks
+             OPTION must be a string of the type 'A N1 N2 N3 N4' with N1 cluster richness, N2 cluster ellipticity, N3 cluster PA and N4 background (galaxies/arcmin^2). Default values are 160, 0.5, 50, 1.
+    Mamon Mocks
+             OPTION must be a string of the type 'M N1 N2 N3 N4 N5 N6 N7' with N1 cluster richness, N2 cluster ellipticity, N3 cluster PA, N4 background (galaxies/arcmin^2), 
+             N5 logarithm of scale radius, N6 cluster center RA and N7 cluster center Dec. Default values are 160, 0.5, 50, 1, -2.08, 0, 0.
+    AMICO data
+             OPTION must be a string of the type 'd [N1-N2][N3-N4]', each list corresponding to a range of desired clusters indices. An unlimited amount of lists can be provided. 
+             If no list is given PROFCL will skip detection and association files generation and will directly import data from detection and association files from previous build.
+.FITS FILE CREATION
+    For AMICO data, in order to speed up calculations, if -S option is trigered the selected halo, cluster and galaxies data will be saved in 3 seperate files, namely: detection_file, halo association
+    file and cluster association file.
+    
+    Detection file
+             This file contains selected clusters data and links clusters IDs with their corresponding halos IDs. If a cluster is linked to more than one halo, the closest halo is chosen. Some information
+             on linked halos are also provided. The following information are given: 
+             - cluster ID (ID)\t\t\t - cluster RA and Dec (RA, Dec)\t\t\t - cluster photometric redshift and error (z, z_err)\t\t\t - Signal/Noise ratio (SNR)\t\t\t - cluster richness (richness)
+             - halo ID (halo_ID)\t\t\t - distance of cluster center from halo center (DIST)\t\t\t - halo mass (H_MASS)\t\t\t - halo "virial" radius (H_R200)\t\t\t - number of galaxies within halo (H_NGALS)
+    Halo association file
+             This file lists all the galaxies belonging to halos linked to selected clusters. Halo IDS are given as well as galaxies RA and Dec. Information on whether galaxies are central are not is given (1
+             if central, 0 if not)
+    Cluster association file
+             This file links all galaxies belong to selcted clusters to their respective cluster. Clusters and galaxies IDs are give, as well as galaxies RA, Dec and probabilities of membership.

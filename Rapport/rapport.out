@@ -1,0 +1,41 @@
+\BOOKMARK [1][-]{section*.3}{Notations utiles}{}% 1
+\BOOKMARK [1][-]{section*.4}{Avant propos}{}% 2
+\BOOKMARK [1][-]{section.1}{EUCLID, AMICO et PROFCL}{}% 3
+\BOOKMARK [2][-]{subsection.1.1}{Projet EUCLID}{section.1}% 4
+\BOOKMARK [2][-]{subsection.1.2}{Algorithmes de d\351tection d'amas: AMICO et PZWav}{section.1}% 5
+\BOOKMARK [3][-]{subsubsection.1.2.1}{PZWav}{subsection.1.2}% 6
+\BOOKMARK [3][-]{subsubsection.1.2.2}{AMICO}{subsection.1.2}% 7
+\BOOKMARK [2][-]{subsection.1.3}{PROFCL: code de d\351termination des propri\351t\351s d'amas par maximum de vraisemblance}{section.1}% 8
+\BOOKMARK [2][-]{subsection.1.4}{Fonctionnalit\351s d\351j\340 incluses et am\351liorations \340 apporter}{section.1}% 9
+\BOOKMARK [1][-]{section.2}{\311tude de la S\351paration m\351diane}{}% 10
+\BOOKMARK [2][-]{subsection.2.1}{Mod\351lisation et calcul}{section.2}% 11
+\BOOKMARK [2][-]{subsection.2.2}{Analyse de la s\351paration m\351diane}{section.2}% 12
+\BOOKMARK [1][-]{section.3}{Halo de mati\350re noire : Profil NFW et surface de densit\351}{}% 13
+\BOOKMARK [2][-]{subsection.3.1}{Profils NFW et NFW tronqu\351s}{section.3}% 14
+\BOOKMARK [2][-]{subsection.3.2}{Densit\351 surfacique projet\351e}{section.3}% 15
+\BOOKMARK [1][-]{section.4}{Calcul du log-likelihood}{}% 16
+\BOOKMARK [2][-]{subsection.4.1}{Maximum de vraisemblance pour des amas de galaxies}{section.4}% 17
+\BOOKMARK [2][-]{subsection.4.2}{Probabilit\351 de position pour un amas sph\351rique}{section.4}% 18
+\BOOKMARK [2][-]{subsection.4.3}{Probabilit\351 pour un amas elliptique}{section.4}% 19
+\BOOKMARK [1][-]{section.5}{Am\351lioration des algorithmes de minimisation}{}% 20
+\BOOKMARK [2][-]{subsection.5.1}{Gestion des limites}{section.5}% 21
+\BOOKMARK [2][-]{subsection.5.2}{Solutions mises en place}{section.5}% 22
+\BOOKMARK [1][-]{section.6}{Performances du code sur les amas acad\351miques}{}% 23
+\BOOKMARK [1][-]{section.7}{\311tude de PROF-CL sur les amas AMICO}{}% 24
+\BOOKMARK [2][-]{subsection.7.1}{M\351thodologie pour l'analyse de la performance de PROF-CL sur les donn\351es d'AMICO}{section.7}% 25
+\BOOKMARK [2][-]{subsection.7.2}{Matching des donn\351es AMICO et EUCLID}{section.7}% 26
+\BOOKMARK [3][-]{subsubsection.7.2.1}{Matching des donn\351es AMICO}{subsection.7.2}% 27
+\BOOKMARK [3][-]{subsubsection.7.2.2}{Matching des donn\351es d'EUCLID}{subsection.7.2}% 28
+\BOOKMARK [2][-]{subsection.7.3}{Analyse des performances du code sur les amas d'AMICO}{section.7}% 29
+\BOOKMARK [1][-]{section.8}{Conclusion et ouverture}{}% 30
+\BOOKMARK [1][-]{appendix.A}{Solutions analytiques de la densit\351 de surface NFW/NFW tronqu\351}{}% 31
+\BOOKMARK [2][-]{subsection.A.1}{NFW circulaire}{appendix.A}% 32
+\BOOKMARK [2][-]{subsection.A.2}{NFW circulaire tronqu\351}{appendix.A}% 33
+\BOOKMARK [1][-]{appendix.B}{Algorithmes de minimisation}{}% 34
+\BOOKMARK [2][-]{subsection.B.1}{Truncated Newtonian Conjugate \(TNC\)}{appendix.B}% 35
+\BOOKMARK [2][-]{subsection.B.2}{Differential Evolution \(DE\)}{appendix.B}% 36
+\BOOKMARK [2][-]{subsection.B.3}{BFGS, Powell et NM}{appendix.B}% 37
+\BOOKMARK [1][-]{appendix.C}{Syst\350mes de coordonn\351es utilis\351s dans PROFCL}{}% 38
+\BOOKMARK [2][-]{subsection.C.1}{Coordonn\351es de r\351f\351rence}{appendix.C}% 39
+\BOOKMARK [2][-]{subsection.C.2}{Coordonn\351es locales elliptiques centr\351es}{appendix.C}% 40
+\BOOKMARK [1][-]{appendix.D}{Exemple d'amas AMICO}{}% 41

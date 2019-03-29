@@ -1,0 +1,166 @@
+@ARTICLE{Sarazin1980,
+       author = {{Sarazin}, C.~L.},
+       title = "{A maximum likelihood method for determining the distribution of galaxies
+        in clusters}",
+       keywords = {Galactic Clusters, Maximum Likelihood Estimates, Spatial Distribution,
+        Statistical Analysis, Astronomical Models, Error Analysis, Monte
+        Carlo Method, Subroutines, Astrophysics},
+       year = 1980,
+       journal = {The Astrophysical Journal},
+       month = Feb,
+       volume = {236},
+        pages = {75-83},
+          doi = {10.1086/157720},
+       adsurl = {https://ui-adsabs-harvard-edu.ezproxy.obspm.fr/#abs/1980ApJ...236...75S},
+      adsnote = {Provided by the SAO/NASA Astrophysics Data System}
+}
+
+@ARTICLE{Mamon2010,
+       author = {{Mamon}, G.~A. and {Biviano}, A. and {Murante}, G.},
+        title = "{The universal distribution of halo interlopers in projected phase space.
+        Bias in galaxy cluster concentration and velocity anisotropy?}",
+      journal = {Astronomy and Astrophysics},
+     keywords = {galaxies: clusters: general, cosmology: miscellaneous, dark matter,
+        galaxies: halos, gravitational lensing:, weak, methods:
+        numerical, Astrophysics - Cosmology and Extragalactic
+        Astrophysics},
+         year = 2010,
+        month = Sep,
+       volume = {520},
+          eid = {A30},
+        pages = {A30},
+          doi = {10.1051/0004-6361/200913948},
+       adsurl = {https://ui-adsabs-harvard-edu.ezproxy.obspm.fr/#abs/2010A&A...520A..30M},
+      adsnote = {Provided by the SAO/NASA Astrophysics Data System}
+}
+
+@ARTICLE{Lokas2001,
+       author = {{{\L}okas}, Ewa L. and {Mamon}, Gary A.},
+        title = "{Properties of spherical galaxies and clusters with an NFW density
+        profile}",
+      journal = {Monthly Notices of the Royal Astronomical Society},
+     keywords = {METHODS: ANALYTICAL, GALAXIES: CLUSTERS: GENERAL, LARGE-SCALE STRUCTURE
+        OF UNIVERSE, methods: analytical, galaxies: clusters: general,
+        large-scale structure of Universe, Astrophysics},
+         year = 2001,
+        month = Feb,
+       volume = {321},
+        pages = {155-166},
+          doi = {10.1046/j.1365-8711.2001.04007.x},
+       adsurl = {https://ui-adsabs-harvard-edu.ezproxy.obspm.fr/#abs/2001MNRAS.321..155L},
+      adsnote = {Provided by the SAO/NASA Astrophysics Data System}
+}
+
+@ARTICLE{NFW1996,
+       author = {{Navarro}, Julio F. and {Frenk}, Carlos S. and {White}, Simon D.~M.},
+        title = "{The Structure of Cold Dark Matter Halos}",
+      journal = {The Astrophysical Journal},
+     keywords = {COSMOLOGY: THEORY, COSMOLOGY: DARK MATTER, GALAXIES: HALOS, METHODS:
+        NUMERICAL, Astrophysics},
+         year = 1996,
+        month = May,
+       volume = {462},
+        pages = {563},
+          doi = {10.1086/177173},
+       adsurl = {https://ui-adsabs-harvard-edu.ezproxy.obspm.fr/#abs/1996ApJ...462..563N},
+      adsnote = {Provided by the SAO/NASA Astrophysics Data System}
+}
+
+@BOOK{Mo_concentration,
+  TITLE = {Galaxy Formation and Evolution},
+  AUTHOR = {{Mo}, Houjun and {van den Bosch}, Frank and {White}, Simon},
+  YEAR = {2010},
+  PUBLISHER = {Cambridge University Press}
+}
+
+@ARTICLE{EUCLID,
+      author = {{Adam}, R. and {al.}},
+      title = "{EUCLID: galaxy cluster detection in the wide photometric survey - performance and algorithms selection}",
+      journal = {Astronomy and Astrophysics},
+      year = 2018,
+      note = {Accepted but not yet published}
+}
+
+@ARTICLE{EUCLID_BIBLE,
+   author = {{Laureijs}, R. and {Amiaux}, J. and {Arduini}, S. and {Augu{\`e}res}, J.~-. and 
+	{Brinchmann}, J. and {Cole}, R. and {Cropper}, M. and {Dabin}, C. and 
+	{Duvet}, L. and {Ealet}, A. and et al.},
+    title = "{Euclid Definition Study Report}",
+  journal = {ArXiv e-prints},
+archivePrefix = "arXiv",
+   eprint = {1110.3193},
+ primaryClass = "astro-ph.CO",
+ keywords = {Astrophysics - Cosmology and Extragalactic Astrophysics, Astrophysics - Galaxy Astrophysics},
+     year = 2011,
+    month = oct,
+   adsurl = {http://adsabs.harvard.edu/abs/2011arXiv1110.3193L},
+  adsnote = {Provided by the SAO/NASA Astrophysics Data System}
+}
+
+@ARTICLE{IRAC,
+   author = {{Eisenhardt}, P.~R.~M. and {Brodwin}, M. and {Gonzalez}, A.~H. and 
+	{Stanford}, S.~A. and {Stern}, D. and {Barmby}, P. and {Brown}, M.~J.~I. and 
+	{Dawson}, K. and {Dey}, A. and {Doi}, M. and {Galametz}, A. and 
+	{Jannuzi}, B.~T. and {Kochanek}, C.~S. and {Meyers}, J. and 
+	{Morokuma}, T. and {Moustakas}, L.~A.},
+    title = "{Clusters of Galaxies in the First Half of the Universe from the IRAC Shallow Survey}",
+  journal = {The Astrophysical Journal},
+archivePrefix = "arXiv",
+   eprint = {0804.4798},
+ keywords = {galaxies: clusters: general, surveys},
+     year = 2008,
+    month = sep,
+   volume = 684,
+    pages = {905-932},
+      doi = {10.1086/590105},
+   adsurl = {http://adsabs.harvard.edu/abs/2008ApJ...684..905E},
+  adsnote = {Provided by the SAO/NASA Astrophysics Data System}
+}
+
+@ARTICLE{AMICO,
+   author = {{Bellagamba}, F. and {Roncarelli}, M. and {Maturi}, M. and {Moscardini}, L.
+	},
+    title = "{AMICO: optimized detection of galaxy clusters in photometric surveys}",
+  journal = {Monthly Notices of the Royal Astronomy},
+archivePrefix = "arXiv",
+   eprint = {1705.03029},
+ keywords = {methods: data analysis, galaxies: clusters: general, large-scale structure of Universe, cosmology: observations},
+     year = 2018,
+    month = feb,
+   volume = 473,
+    pages = {5221-5236},
+      doi = {10.1093/mnras/stx2701},
+   adsurl = {http://adsabs.harvard.edu/abs/2018MNRAS.473.5221B},
+  adsnote = {Provided by the SAO/NASA Astrophysics Data System}
+}
+
+@ARTICLE{Catalog_EUCLID,
+   author = {{Ascaso}, B. and {Mei}, S. and {Ben{\'{\i}}tez}, N.},
+    title = "{Apples to apples A$^{2}$ - I. Realistic galaxy simulated catalogues and photometric redshift predictions for next-generation surveys}",
+  journal = {Monthly Notices of the Royal Astronomy},
+archivePrefix = "arXiv",
+   eprint = {1503.01113},
+ keywords = {catalogues, surveys, galaxies: evolution, galaxies: luminosity function, mass function, galaxies: photometry, cosmology: observations},
+     year = 2015,
+    month = nov,
+   volume = 453,
+    pages = {2515-2532},
+      doi = {10.1093/mnras/stv1597},
+   adsurl = {http://adsabs.harvard.edu/abs/2015MNRAS.453.2515A},
+  adsnote = {Provided by the SAO/NASA Astrophysics Data System}
+}
+
+@ARTICLE{Pen,
+   author = {{Pen}, U.-L.},
+    title = "{Analytical Fit to the Luminosity Distance for Flat Cosmologies with a Cosmological Constant}",
+  journal = {The Astrophysical Journal},
+   eprint = {astro-ph/9904172},
+ keywords = {COSMOLOGY: THEORY, COSMOLOGY: DISTANCE SCALE, Cosmology: Theory, Cosmology: Distance Scale},
+     year = 1999,
+    month = jan,
+   volume = 120,
+    pages = {49-50},
+      doi = {10.1086/313167},
+   adsurl = {http://adsabs.harvard.edu/abs/1999ApJS..120...49P},
+  adsnote = {Provided by the SAO/NASA Astrophysics Data System}
+}

@@ -1,0 +1,119 @@
+\begin{thebibliography}{}
+
+\bibitem[{Adam} and {al.}, 2018]{EUCLID}
+{Adam}, R. and {al.} (2018).
+\newblock {EUCLID: galaxy cluster detection in the wide photometric survey -
+  performance and algorithms selection}.
+\newblock {\em Astronomy and Astrophysics}.
+\newblock Accepted but not yet published.
+
+\bibitem[{Ascaso} et~al., 2015]{Catalog_EUCLID}
+{Ascaso}, B., {Mei}, S., and {Ben{\'{\i}}tez}, N. (2015).
+\newblock {Apples to apples A$^{2}$ - I. Realistic galaxy simulated catalogues
+  and photometric redshift predictions for next-generation surveys}.
+\newblock {\em Monthly Notices of the Royal Astronomy}, 453:2515--2532.
+
+\bibitem[{Bellagamba} et~al., 2018]{AMICO}
+{Bellagamba}, F., {Roncarelli}, M., {Maturi}, M., and {Moscardini}, L. (2018).
+\newblock {AMICO: optimized detection of galaxy clusters in photometric
+  surveys}.
+\newblock {\em Monthly Notices of the Royal Astronomy}, 473:5221--5236.
+
+\bibitem[BROYDEN, 1970]{BFGS}
+BROYDEN, C.~G. (1970).
+\newblock The convergence of a class of double-rank minimization algorithms2.
+  the new algorithm.
+\newblock {\em IMA Journal of Applied Mathematics}, 6(3):222--231.
+
+\bibitem[{Eisenhardt} et~al., 2008]{IRAC}
+{Eisenhardt}, P.~R.~M., {Brodwin}, M., {Gonzalez}, A.~H., {Stanford}, S.~A.,
+  {Stern}, D., {Barmby}, P., {Brown}, M.~J.~I., {Dawson}, K., {Dey}, A., {Doi},
+  M., {Galametz}, A., {Jannuzi}, B.~T., {Kochanek}, C.~S., {Meyers}, J.,
+  {Morokuma}, T., and {Moustakas}, L.~A. (2008).
+\newblock {Clusters of Galaxies in the First Half of the Universe from the IRAC
+  Shallow Survey}.
+\newblock {\em The Astrophysical Journal}, 684:905--932.
+
+\bibitem[{Laureijs} et~al., 2011]{EUCLID_BIBLE}
+{Laureijs}, R., {Amiaux}, J., {Arduini}, S., {Augu{\`e}res}, J.~.,
+  {Brinchmann}, J., {Cole}, R., {Cropper}, M., {Dabin}, C., {Duvet}, L.,
+  {Ealet}, A., and et~al. (2011).
+\newblock {Euclid Definition Study Report}.
+\newblock {\em ArXiv e-prints}.
+
+\bibitem[{{\L}okas} and {Mamon}, 2001]{Lokas2001}
+{{\L}okas}, E.~L. and {Mamon}, G.~A. (2001).
+\newblock {Properties of spherical galaxies and clusters with an NFW density
+  profile}.
+\newblock {\em Monthly Notices of the Royal Astronomical Society},
+  321:155--166.
+
+\bibitem[{Mamon} et~al., 2010]{Mamon2010}
+{Mamon}, G.~A., {Biviano}, A., and {Murante}, G. (2010).
+\newblock {The universal distribution of halo interlopers in projected phase
+  space. Bias in galaxy cluster concentration and velocity anisotropy?}
+\newblock {\em Astronomy and Astrophysics}, 520:A30.
+
+\bibitem[{Merson} et~al., 2013]{GALFORM}
+{Merson}, A.~I., {Baugh}, C.~M., {Helly}, J.~C., {Gonzalez-Perez}, V., {Cole},
+  S., {Bielby}, R., {Norberg}, P., {Frenk}, C.~S., {Benson}, A.~J., {Bower},
+  R.~G., {Lacey}, C.~G., and {Lagos}, C.~d.~P. (2013).
+\newblock {Lightcone mock catalogues from semi-analytic models of galaxy
+  formation - I. Construction and application to the BzK colour selection}.
+\newblock {\em Monthly Notices of the Royal Astronomy}, 429:556--578.
+
+\bibitem[{Mo} et~al., 2010]{Mo_concentration}
+{Mo}, H., {van den Bosch}, F., and {White}, S. (2010).
+\newblock {\em Galaxy Formation and Evolution}.
+\newblock Cambridge University Press.
+
+\bibitem[{Navarro} et~al., 1996]{NFW1996}
+{Navarro}, J.~F., {Frenk}, C.~S., and {White}, S. D.~M. (1996).
+\newblock {The Structure of Cold Dark Matter Halos}.
+\newblock {\em The Astrophysical Journal}, 462:563.
+
+\bibitem[Nelder and Mead, 1965]{NelderMead}
+Nelder, J. and Mead, R. (1965).
+\newblock A simplex method for function minimization comput.
+\newblock 7.
+
+\bibitem[Powell, 1964]{Powell}
+Powell, M. J.~D. (1964).
+\newblock An efficient method for finding the minimum of a function of several
+  variables without calculating derivatives.
+\newblock {\em The Computer Journal}, 7(2):155--162.
+
+\bibitem[{Sarazin}, 1980]{Sarazin1980}
+{Sarazin}, C.~L. (1980).
+\newblock {A maximum likelihood method for determining the distribution of
+  galaxies in clusters}.
+\newblock {\em The Astrophysical Journal}, 236:75--83.
+
+\bibitem[{Shewchuk}, 1994]{TNC}
+{Shewchuk}, Jonathan, R. (1994).
+\newblock An introduction to the conjugate gradient method without the
+  agonizing pain.
+\newblock
+  \url{http://www.cs.cmu.edu/~quake-papers/painless-conjugate-gradient.pdf}.
+
+\bibitem[{Springel}, 2005]{GADGET-2}
+{Springel}, V. (2005).
+\newblock {The cosmological simulation code GADGET-2}.
+\newblock {\em Monthly Notices of the Royal Astronomy}, 364:1105--1134.
+
+\bibitem[{Springel} et~al., 2005]{Springel2005}
+{Springel}, V., {White}, S.~D.~M., {Jenkins}, A., {Frenk}, C.~S., {Yoshida},
+  N., {Gao}, L., {Navarro}, J., {Thacker}, R., {Croton}, D., {Helly}, J.,
+  {Peacock}, J.~A., {Cole}, S., {Thomas}, P., {Couchman}, H., {Evrard}, A.,
+  {Colberg}, J., and {Pearce}, F. (2005).
+\newblock {Simulations of the formation, evolution and clustering of galaxies
+  and quasars}.
+\newblock {\em Nature}, 435:629--636.
+
+\bibitem[Storn and Price, 1997]{Storn1997}
+Storn, R. and Price, K. (1997).
+\newblock Differential evolution -- a simple and efficient heuristic for global
+  optimization over continuous spaces.
+\newblock {\em Journal of Global Optimization}, 11(4):341--359.
+
+\end{thebibliography}
